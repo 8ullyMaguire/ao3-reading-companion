@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "My AO3 Algorithm",
+  "version": "1.0.0",
+  "description": "A personalized recommendation algorithm for Archive of Our Own. All data stays on your computer.",
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "my-ao3-algorithm@local",
+      "data_collection_permissions": {
+        "required": ["none"]
+      },
+      "strict_min_version": "115.0"
+    }
+  },
+
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "My AO3 Algorithm",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+
+  "background": {
+    "scripts": ["db.js", "parsers.js", "scoring.js", "background.js"]
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://archiveofourown.org/*"],
+      "js": ["parsers.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "permissions": ["storage", "alarms"],
+
+  "host_permissions": ["https://archiveofourown.org/*"]
+}

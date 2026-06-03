@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My AO3 Algorithm — Preferences</title>
+  <link rel="stylesheet" href="preferences.css" />
+</head>
+<body>
+
+  <header class="page-header">
+    <div class="header-inner">
+      <div class="brand">
+        <h1>Preferences</h1>
+        <p class="subtitle" id="page-subtitle">Loading&hellip;</p>
+      </div>
+      <nav class="header-nav">
+        <button id="nav-feed" class="ghost" type="button">← Back to feed</button>
+        <button id="nav-myreading" class="ghost" type="button">My Reading</button>
+        <button id="nav-rerun" class="ghost" type="button">Re-run setup</button>
+        <button id="nav-debug" class="ghost" type="button">Debug</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-main">
+    <aside class="sidebar" aria-label="Preferences sections">
+      <button class="side-link" data-section="overview"><span class="side-icon">▣</span>Overview</button>
+      <button class="side-link" data-section="tags"><span class="side-icon">♥</span>Tags</button>
+      <button class="side-link" data-section="fandoms"><span class="side-icon">★</span>Fandoms</button>
+      <button class="side-link" data-section="authors"><span class="side-icon">✒</span>Authors</button>
+      <button class="side-link" data-section="structural"><span class="side-icon">⚙</span>Structural</button>
+      <div class="side-divider" aria-hidden="true"></div>
+      <button class="side-link" data-section="history"><span class="side-icon">📖</span>Reading history</button>
+      <button class="side-link" data-section="dislike-history"><span class="side-icon">⚑</span>Dislike history</button>
+      <button class="side-link" data-section="cache"><span class="side-icon">⛁</span>Cache</button>
+      <button class="side-link" data-section="settings"><span class="side-icon">⚙</span>Settings</button>
+      <button class="side-link" data-section="backup"><span class="side-icon">⇅</span>Backup &amp; data</button>
+    </aside>
+
+    <section class="content" id="content">
+
+      <!-- ===== Overview ===== -->
+      <div class="section" data-section="overview" hidden>
+        <h2 class="section-title">Overview</h2>
+        <p class="section-blurb">A snapshot of your taste profile and the data the extension has collected.</p>
+
+        <div class="stat-grid">
+          <div class="stat-card"><span class="stat-num" id="stat-pref-tags">—</span><span class="stat-label">preferred tags</span></div>
+          <div class="stat-card"><span class="stat-num" id="stat-pref-fandoms">—</span><span class="stat-label">preferred fandoms</span></div>
+          <div class="stat-card"><span class="stat-num" id="stat-blocked-tags">—</span><span class="stat-label">blocked tags</span></div>
+          <div class="stat-card"><span class="stat-num" id="stat-blocked-authors">—</span><span class="stat-label">blocked authors</span></div>
+          <div class="stat-card"><span class="stat-num" id="stat-cache">—</span><span class="stat-label">fics cached</span></div>
+          <div class="stat-card"><span class="stat-num" id="stat-history">—</span><span class="stat-label">in reading history</span></div>
+        </div>
+
+        <div class="overview-info">
+          <div class="info-row"><span class="info-label">Last cache refresh:</span> <span id="last-cache-refresh">—</span></div>
+          <div class="info-row"><span class="info-label">Browsing style:</span> <span id="browsing-style-readout">—</span></div>
+        </div>
+
+        <h3 class="section-subtitle">Quick links</h3>
+        <div class="quick-links">
+          <button class="quick-link" data-jump="tags">Edit preferred tags →</button>
+          <button class="quick-link" data-jump="fandoms">Edit preferred fandoms →</button>
+          <button class="quick-link" data-jump="authors">Manage authors →</button>
+          <button class="quick-link" data-jump="structural">Word count, ratings, etc. →</button>
+        </div>
+      </div>
+
+      <!-- ===== Tags ===== -->
+      <div class="section" data-section="tags" hidden>
+        <h2 class="section-title">Tags</h2>
+        <p class="section-blurb">Tags you love, weighted by how much. Locked tags won't be auto-adjusted by the dislike flow.</p>
+
+        <div class="list-block">
+          <button type="button" class="list-toggle" data-toggle="pref-tags" aria-expanded="true">
+            <span class="list-toggle-name">Preferred tags</span>
+            <span class="list-toggle-count" id="count-pref-tags">0</span>
+            <span class="list-toggle-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="list-body" data-body="pref-tags">
+            <div class="add-block">
+              <div class="add-block-row search-block">
+                <input type="text" id="add-pref-tag-input" class="ac-input" placeholder="Add a preferred tag — start typing to search AO3" autocomplete="off" />
+                <div id="add-pref-tag-dropdown" class="autocomplete-dropdown" hidden></div>
+              </div>
+              <div id="pending-pref-tag" class="pending-row" hidden></div>
+              <input type="text" id="filter-pref-tags" class="filter-input" placeholder="Filter your preferred tags by name…" />
+            </div>
+
+            <div id="pref-tags-list" class="pref-list"></div>
+            <p id="pref-tags-empty" class="empty-msg" hidden>No preferred tags yet. Add some above or re-run setup.</p>
+          </div>
+        </div>
+
+        <div class="list-block">
+          <button type="button" class="list-toggle" data-toggle="blocked-tags" aria-expanded="true">
+            <span class="list-toggle-name">Blocked tags</span>
+            <span class="list-toggle-count" id="count-blocked-tags">0</span>
+            <span class="list-toggle-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="list-body" data-body="blocked-tags">
+            <p class="section-blurb">Fics tagged with these are filtered out — never shown in your feed.</p>
+
+            <div class="add-block">
+              <div class="add-block-row search-block">
+                <input type="text" id="add-blocked-tag-input" class="ac-input" placeholder="Add a blocked tag — start typing to search AO3" autocomplete="off" />
+                <div id="add-blocked-tag-dropdown" class="autocomplete-dropdown" hidden></div>
+              </div>
+              <input type="text" id="filter-blocked-tags" class="filter-input" placeholder="Filter your blocked tags by name…" />
+            </div>
+
+            <div id="blocked-tags-list" class="pref-list"></div>
+            <p id="blocked-tags-empty" class="empty-msg" hidden>No blocked tags yet.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Fandoms ===== -->
+      <div class="section" data-section="fandoms" hidden>
+        <h2 class="section-title">Fandoms</h2>
+        <p class="section-blurb">Fandoms you read in. Weights influence how strongly fandom matches push a fic up your feed.</p>
+
+        <div class="list-block">
+          <button type="button" class="list-toggle" data-toggle="pref-fandoms" aria-expanded="true">
+            <span class="list-toggle-name">Preferred fandoms</span>
+            <span class="list-toggle-count" id="count-pref-fandoms">0</span>
+            <span class="list-toggle-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="list-body" data-body="pref-fandoms">
+            <div class="add-block">
+              <div class="add-block-row search-block">
+                <input type="text" id="add-pref-fandom-input" class="ac-input" placeholder="Add a preferred fandom — start typing to search AO3" autocomplete="off" />
+                <div id="add-pref-fandom-dropdown" class="autocomplete-dropdown" hidden></div>
+              </div>
+              <div id="pending-pref-fandom" class="pending-row" hidden></div>
+              <input type="text" id="filter-pref-fandoms" class="filter-input" placeholder="Filter your preferred fandoms by name…" />
+            </div>
+
+            <div id="pref-fandoms-list" class="pref-list"></div>
+            <p id="pref-fandoms-empty" class="empty-msg" hidden>No preferred fandoms yet. Add some above or re-run setup.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Authors ===== -->
+      <div class="section" data-section="authors" hidden>
+        <h2 class="section-title">Authors</h2>
+        <p class="section-blurb">Author affinity is built up automatically from your reading history. Manual penalties from the "I don't like this" flow show in the third column.</p>
+
+        <div class="list-block">
+          <button type="button" class="list-toggle" data-toggle="authors" aria-expanded="true">
+            <span class="list-toggle-name">Author affinity</span>
+            <span class="list-toggle-count" id="count-authors">0</span>
+            <span class="list-toggle-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="list-body" data-body="authors">
+            <div class="authors-toolbar">
+              <input type="text" id="filter-authors" class="filter-input" placeholder="Filter by author name…" />
+              <select id="sort-authors" class="select-input" aria-label="Sort authors">
+                <option value="affinity">Sort by affinity (highest first)</option>
+                <option value="reads">Sort by reads (most first)</option>
+                <option value="penalty">Sort by manual penalty (worst first)</option>
+                <option value="alpha">Sort alphabetically</option>
+              </select>
+            </div>
+
+            <div id="authors-list" class="authors-list"></div>
+            <p id="authors-empty" class="empty-msg" hidden>No author affinity data yet — read a few fics by the same author and they'll show up here.</p>
+
+            <div class="danger-row">
+              <button id="clear-affinity-btn" class="danger-btn" type="button">Clear all author affinity</button>
+              <span class="danger-hint">Wipes the per-author scoring data. Reading history and preferences stay.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="list-block">
+          <button type="button" class="list-toggle" data-toggle="blocked-authors" aria-expanded="true">
+            <span class="list-toggle-name">Blocked authors</span>
+            <span class="list-toggle-count" id="count-blocked-authors">0</span>
+            <span class="list-toggle-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="list-body" data-body="blocked-authors">
+            <p class="section-blurb">Fics by these authors are filtered out before scoring.</p>
+
+            <div class="add-block">
+              <div class="add-block-row">
+                <input type="text" id="add-blocked-author-input" class="filter-input" placeholder="Type an AO3 username and press Enter to block" />
+              </div>
+              <input type="text" id="filter-blocked-authors" class="filter-input" placeholder="Filter your blocked authors by name…" />
+            </div>
+
+            <div id="blocked-authors-list" class="pref-list"></div>
+            <p id="blocked-authors-empty" class="empty-msg" hidden>No blocked authors.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Structural ===== -->
+      <div class="section" data-section="structural" hidden>
+        <h2 class="section-title">Structural preferences</h2>
+        <p class="section-blurb">The shape of fics you want — length, rating, completion. Fics outside these bounds are filtered out before scoring.</p>
+
+        <div class="form-row">
+          <label for="min-words">Minimum word count</label>
+          <select id="min-words" class="select-input">
+            <option value="">No minimum</option>
+            <option value="1000">1,000+</option>
+            <option value="5000">5,000+</option>
+            <option value="10000">10,000+</option>
+            <option value="30000">30,000+</option>
+            <option value="50000">50,000+</option>
+            <option value="100000">100,000+</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="max-words">Maximum word count</label>
+          <select id="max-words" class="select-input">
+            <option value="">No maximum</option>
+            <option value="10000">Up to 10,000</option>
+            <option value="30000">Up to 30,000</option>
+            <option value="50000">Up to 50,000</option>
+            <option value="100000">Up to 100,000</option>
+            <option value="200000">Up to 200,000</option>
+          </select>
+        </div>
+
+        <fieldset class="form-row form-row-fieldset">
+          <legend>Ratings to include</legend>
+          <label class="cb-row"><input type="checkbox" class="rating-cb" value="G" /> General Audiences (G)</label>
+          <label class="cb-row"><input type="checkbox" class="rating-cb" value="T" /> Teen And Up (T)</label>
+          <label class="cb-row"><input type="checkbox" class="rating-cb" value="M" /> Mature (M)</label>
+          <label class="cb-row"><input type="checkbox" class="rating-cb" value="E" /> Explicit (E)</label>
+          <label class="cb-row"><input type="checkbox" class="rating-cb" value="Not Rated" /> Not Rated</label>
+        </fieldset>
+
+        <div class="form-row">
+          <label class="cb-row"><input type="checkbox" id="complete-only" /> Show only completed fics</label>
+        </div>
+
+        <h3 class="section-subtitle">Browsing style</h3>
+        <p class="section-blurb">Tags-first means tag matches get a 1.5× boost during scoring; fandom-first does the same for fandom matches.</p>
+        <div class="bs-row">
+          <button class="bs-choice" data-style="tags-first" type="button">
+            <span class="bs-title">Tags first</span>
+            <span class="bs-sub">Boost tag matches</span>
+          </button>
+          <button class="bs-choice" data-style="fandom-first" type="button">
+            <span class="bs-title">Fandoms first</span>
+            <span class="bs-sub">Boost fandom matches</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ===== Reading history ===== -->
+      <div class="section" data-section="history" hidden>
+        <h2 class="section-title">Reading history</h2>
+        <p class="section-blurb">Every fic you've opened. Search by title or author, filter by state, delete any entry. The scoring engine uses this to know what you've already read.</p>
+
+        <div class="add-block">
+          <div class="add-block-row">
+            <input type="text" id="filter-history" class="filter-input" placeholder="Search by title or author…" />
+            <select id="filter-history-state" class="select-input" aria-label="Filter by state">
+              <option value="all">All states</option>
+              <option value="save_for_later">Save for later</option>
+              <option value="reading_inprogress">Reading — in progress</option>
+              <option value="reading_caughtup">Reading — caught up</option>
+              <option value="set_aside">Set aside</option>
+            </select>
+          </div>
+        </div>
+
+        <p id="history-count-line" class="muted-line"></p>
+        <div id="history-list" class="history-list"></div>
+        <p id="history-empty" class="empty-msg" hidden>No reading history yet — open a fic on AO3 and it'll appear here.</p>
+
+        <div class="danger-row">
+          <button id="clear-history-btn" class="danger-btn" type="button">Clear all reading history</button>
+          <span class="danger-hint">Wipes every entry. Preferences and fic cache are kept.</span>
+        </div>
+      </div>
+
+      <!-- ===== Dislike history ===== -->
+      <div class="section" data-section="dislike-history" hidden>
+        <h2 class="section-title">Dislike history</h2>
+        <p class="section-blurb">Every action from the "I don't like this" flow. Undo when the affected preferences haven't moved on. Delete a record if you want to forget it ever happened.</p>
+
+        <p id="dislike-count-line" class="muted-line"></p>
+        <div id="dislike-list" class="dislike-list"></div>
+        <p id="dislike-empty" class="empty-msg" hidden>No dislike actions recorded yet.</p>
+
+        <div class="load-more-row">
+          <button id="dislike-load-all-btn" class="ghost" type="button" hidden>Load all (showing last 100)</button>
+        </div>
+      </div>
+
+      <!-- ===== Cache ===== -->
+      <div class="section" data-section="cache" hidden>
+        <h2 class="section-title">Cache</h2>
+        <p class="section-blurb">The cached fics the algorithm scores against. Built up passively as you browse AO3.</p>
+
+        <div class="stat-grid">
+          <div class="stat-card"><span class="stat-num" id="cache-stat-count">—</span><span class="stat-label">fics cached</span></div>
+          <div class="stat-card"><span class="stat-num" id="cache-stat-size">—</span><span class="stat-label">approx. storage</span></div>
+          <div class="stat-card"><span class="stat-num" id="cache-stat-refresh">—</span><span class="stat-label">last refresh</span></div>
+        </div>
+
+        <div class="action-row">
+          <button id="refresh-cache-btn" class="primary-btn" type="button">Refresh now</button>
+          <span class="form-help" id="refresh-cache-help">Pulls your top fandoms and tags + syncs subscribed authors. Skipped if you're logged out of AO3.</span>
+        </div>
+
+        <div class="danger-row">
+          <button id="clear-cache-btn" class="danger-btn" type="button">Clear cache</button>
+          <span class="danger-hint">Wipes every cached fic. Preferences, history, and author affinity stay.</span>
+        </div>
+      </div>
+
+      <!-- ===== Settings ===== -->
+      <div class="section" data-section="settings" hidden>
+        <h2 class="section-title">Settings</h2>
+        <p class="section-blurb">Behavior knobs for the extension. All settings save immediately.</p>
+
+        <div class="form-row">
+          <label for="set-scrape-delay">Time between requests</label>
+          <select id="set-scrape-delay" class="select-input">
+            <option value="5">5 seconds</option>
+            <option value="10">10 seconds</option>
+            <option value="15">15 seconds</option>
+            <option value="30">30 seconds</option>
+          </select>
+          <span class="form-help">Politeness rule for AO3 — minimum spacing between scrape requests.</span>
+        </div>
+
+        <div class="form-row">
+          <label for="set-pull-interval">Auto-refresh schedule</label>
+          <select id="set-pull-interval" class="select-input">
+            <option value="4">Every 4 hours</option>
+            <option value="8">Every 8 hours</option>
+            <option value="12">Every 12 hours</option>
+            <option value="24">Every 24 hours</option>
+          </select>
+          <span class="form-help">How often background pulls run.</span>
+        </div>
+
+        <div class="form-row">
+          <label for="set-pages-per-refresh">Pages per refresh</label>
+          <select id="set-pages-per-refresh" class="select-input">
+            <option value="3">3 pages (fastest)</option>
+            <option value="6">6 pages</option>
+            <option value="10">10 pages</option>
+            <option value="15">15 pages</option>
+            <option value="20">20 pages (deepest)</option>
+          </select>
+          <span class="form-help">Higher values check more of your preferences but take longer. Each request is spaced by the setting above. Quick on-feed-open checks always use 3 pages.</span>
+        </div>
+
+        <div class="form-row">
+          <label class="cb-row"><input type="checkbox" id="set-pause-scraping" /> Pause background scraping</label>
+          <span class="form-help">Stops scheduled pulls and the daily subscriptions sync. The Refresh now button on the Cache section still works.</span>
+        </div>
+
+        <div class="form-row">
+          <label class="cb-row"><input type="checkbox" id="set-behavioral-enabled" /> Enable behavioral signals</label>
+          <span class="form-help">Once you've opened enough fics, the algorithm can blend in patterns from your reading habits. Off by default while the feature is being tuned.</span>
+        </div>
+
+        <div class="form-row">
+          <label for="set-behavioral-threshold">Behavioral signals threshold</label>
+          <select id="set-behavioral-threshold" class="select-input">
+            <option value="5">5 fics</option>
+            <option value="10">10 fics</option>
+            <option value="20">20 fics</option>
+            <option value="50">50 fics</option>
+          </select>
+          <span class="form-help">Minimum fics in your history before behavioral signals factor in.</span>
+        </div>
+
+        <h3 class="section-subtitle">Account</h3>
+        <div class="overview-info">
+          <div class="info-row"><span class="info-label">AO3 username:</span> <span id="info-username">—</span></div>
+          <div class="info-row"><span class="info-label">Last subscriptions sync:</span> <span id="info-last-sync">—</span></div>
+        </div>
+      </div>
+
+      <!-- ===== Backup & data ===== -->
+      <div class="section" data-section="backup" hidden>
+        <h2 class="section-title">Backup &amp; data</h2>
+        <p class="section-blurb">Export your full extension state to a file, restore from a previous backup, or wipe everything and start over.</p>
+
+        <h3 class="section-subtitle">Export</h3>
+        <p class="section-blurb">Saves everything — preferences, history, fic cache, author affinity, dislike history, custom rows, and settings — as a single JSON file.</p>
+        <div class="action-row">
+          <button id="export-btn" class="primary-btn" type="button">Export to JSON file</button>
+        </div>
+
+        <h3 class="section-subtitle">Import</h3>
+        <p class="section-blurb">Replaces every store with the contents of the backup. Current data is wiped.</p>
+        <div class="action-row">
+          <input type="file" id="import-file" accept="application/json,.json" hidden />
+          <button id="import-btn" class="primary-btn" type="button">Choose backup file…</button>
+          <span id="import-status" class="form-help"></span>
+        </div>
+
+        <h3 class="section-subtitle">Import AO3 bookmarks</h3>
+        <p class="section-blurb">Walks your AO3 bookmarks (newest first) and adds each bookmarked work to your Save for Later list. Skips anything already in your reading history — existing state is never overwritten. Politely spaced to respect AO3's servers; large bookmark lists can take several minutes.</p>
+        <div class="action-row">
+          <button id="bookmarks-import-btn" class="primary-btn" type="button">Import AO3 bookmarks</button>
+          <span id="bookmarks-import-status" class="form-help"></span>
+        </div>
+
+        <h3 class="section-subtitle">Reset to defaults</h3>
+        <p class="section-blurb">Wipes preferences, reading history, fic cache, author affinity, dislike history, custom rows, and subscribed authors. Settings reset to defaults. You'll be sent back to onboarding.</p>
+        <div class="action-row">
+          <button id="reset-btn" class="danger-btn" type="button">Reset everything…</button>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Type-to-confirm modal (used for Reset to defaults) -->
+  <div id="confirm-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <h2 id="confirm-title" class="confirm-title">Confirm</h2>
+      <p id="confirm-body" class="confirm-body"></p>
+      <p class="confirm-prompt">Type <code id="confirm-word">RESET</code> to continue:</p>
+      <input type="text" id="confirm-input" class="ac-input" autocomplete="off" />
+      <div class="confirm-buttons">
+        <button id="confirm-cancel" type="button" class="ghost">Cancel</button>
+        <button id="confirm-go" type="button" class="danger-btn" disabled>Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="pref-toast" hidden></div>
+
+  <script src="db.js"></script>
+  <script src="dislike.js"></script>
+  <script src="preferences.js"></script>
+</body>
+</html>

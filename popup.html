@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My AO3 Algorithm</title>
+  <style>
+    body {
+      width: 280px;
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #f0f0f0;
+    }
+    h1 {
+      font-size: 16px;
+      margin: 0 0 8px 0;
+      color: #ff5555;
+    }
+    p {
+      font-size: 13px;
+      margin: 4px 0;
+      line-height: 1.4;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 8px;
+      background: #2a2a2a;
+      border-left: 3px solid #4caf50;
+      border-radius: 2px;
+      font-size: 12px;
+    }
+    .status.warn {
+      border-left-color: #d97706;
+    }
+    .version {
+      margin-top: 12px;
+      font-size: 11px;
+      color: #888;
+    }
+    button {
+      margin-top: 8px;
+      width: 100%;
+      background: #ff5555;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    button.secondary {
+      background: #2a2a2a;
+      color: #f0f0f0;
+      border: 1px solid #3a3a3a;
+    }
+    button:hover {
+      filter: brightness(1.15);
+    }
+  </style>
+</head>
+<body>
+  <h1>My AO3 Algorithm</h1>
+  <p>Your personal recommendation algorithm for AO3.</p>
+  <div class="status" id="status">Loading&hellip;</div>
+  <button id="open-feed" hidden>Open my feed</button>
+  <button id="open-myreading" class="secondary" hidden>My Reading</button>
+  <button id="open-preferences" class="secondary" hidden>Preferences</button>
+  <button id="open-onboarding">Run setup</button>
+  <button id="open-debug" class="secondary">Open debug console</button>
+  <div class="version">Version 1.0.0</div>
+  <script src="db.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

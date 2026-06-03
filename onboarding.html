@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My AO3 Algorithm — Setup</title>
+  <link rel="stylesheet" href="onboarding.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>My AO3 Algorithm</h1>
+      <div class="progress">
+        <div class="progress-text">Step <span id="step-num">1</span> of 9</div>
+        <div class="progress-bar"><div id="progress-fill"></div></div>
+      </div>
+      <div id="logout-banner" class="banner warning" hidden>
+        <strong>You appear to be logged out of AO3.</strong> Some features (autocomplete, "fetch some fics for me") may not work.
+        <a href="https://archiveofourown.org/users/login" target="_blank" rel="noopener">Log in to AO3</a> in another tab, then refresh this page.
+      </div>
+    </header>
+
+    <main>
+
+      <!-- ====== Screen 1: Welcome ====== -->
+      <section class="screen" data-screen="1">
+        <h2>Welcome.</h2>
+        <p class="lead">
+          I'll build you a personal AO3 feed that learns what you love &mdash;
+          and everything stays on your computer. Nothing leaves your browser, ever.
+        </p>
+        <details class="learn-more">
+          <summary>What does this extension actually do?</summary>
+          <div class="learn-more-body">
+            <p>AO3 famously has no algorithm &mdash; works are sorted by date or filtered by your search, and that's it. This extension adds a personal recommendation algorithm just for you:</p>
+            <ul>
+              <li>It quietly notices the fics you visit on AO3 and saves their metadata to a database in your browser.</li>
+              <li>You teach it your tastes (this setup is the first step) and it scores fics for you using a transparent formula you can see at any time.</li>
+              <li>It builds you a feed with rows like "Similar to your tastes," "Hidden gems," "Your authors," and any custom rows you define.</li>
+              <li>Every recommendation has a "why this?" button that explains exactly why it's there.</li>
+            </ul>
+            <p>There's no server, no account, no telemetry. The extension only talks to AO3 itself, only as much as needed.</p>
+          </div>
+        </details>
+        <div class="actions">
+          <span></span>
+          <button class="primary" data-action="next">Let's go &rarr;</button>
+        </div>
+      </section>
+
+      <!-- ====== Screen 2: Browsing style ====== -->
+      <section class="screen" data-screen="2" hidden>
+        <h2>How do you usually browse AO3?</h2>
+        <p class="lead">This shapes the order things appear in. You can change it later.</p>
+        <div class="big-choices">
+          <button class="big-choice" data-style="fandom-first">
+            <div class="big-title">Fandoms first</div>
+            <div class="big-sub">"I look for fandoms first, then tags within them."</div>
+          </button>
+          <button class="big-choice" data-style="tags-first">
+            <div class="big-title">Tags first</div>
+            <div class="big-sub">"I look for tags first, across any fandom."</div>
+          </button>
+        </div>
+        <p class="selected-readout" id="style-readout"></p>
+        <div class="actions">
+          <button data-action="back">&larr; Back</button>
+          <button class="primary" data-action="next" disabled>Continue &rarr;</button>
+        </div>
+      </section>
+
+      <!-- ====== Screen 3: Pick fandoms ====== -->
+      <section class="screen" data-screen="3" hidden>
+        <h2>Pick your fandoms</h2>
+        <p class="lead">What worlds do you want to read in? Search and tap to add.</p>
+        <div class="search-block">
+          <input type="text" id="fandom-search" placeholder="Type a fandom name (e.g. Good Omens)" autocomplete="off" />
+          <div id="fandom-dropdown" class="autocomplete-dropdown" hidden></div>
+        </div>
+        <div id="fandom-chips" class="chips"></div>
+        <p class="hint" id="fandom-hint">No fandoms picked yet. (Skip is fine if you browse by tag.)</p>
+        <div class="actions">
+          <button data-action="back">&larr; Back</button>
+          <span class="action-spacer"></span>
+          <button data-action="skip">Skip this step</button>
+          <button class="primary" data-action="next">Continue &rarr;</button>
+        </div>
+      </section>
+
+      <!-- ====== Screen 4: Pick tags ====== -->
+      <section class="screen" data-screen="4" hidden>
+        <h2>Pick tags you love</h2>
+        <p class="lead">Tropes, dynamics, themes — anything you reliably reach for. Pick at least 3.</p>
+        <div class="search-block">
+          <input type="text" id="tag-search" placeholder="Type a tag (e.g. Slow Burn)" autocomplete="off" />
+          <div id="tag-dropdown" class="autocomplete-dropdown" hidden></div>
+        </div>
+        <div id="tag-chips" class="chips"></div>
+        <p class="hint" id="tag-hint">Pick at least 3 to continue.</p>
+
+        <details class="examples">
+          <summary>Need ideas? Click any to prefill the search.</summary>
+          <div class="example-groups">
+            <div class="example-group">
+              <h4>Tropes</h4>
+              <button class="example-tag" data-fill="Slow Burn">Slow Burn</button>
+              <button class="example-tag" data-fill="Found Family">Found Family</button>
+              <button class="example-tag" data-fill="Enemies to Lovers">Enemies to Lovers</button>
+            </div>
+            <div class="example-group">
+              <h4>Relationship dynamics</h4>
+              <button class="example-tag" data-fill="Alpha/Beta/Omega Dynamics">Alpha/Omega</button>
+              <button class="example-tag" data-fill="Soulmates">Soulmates</button>
+              <button class="example-tag" data-fill="Marriage of Convenience">Marriage of Convenience</button>
+            </div>
+            <div class="example-group">
+              <h4>Themes</h4>
+              <button class="example-tag" data-fill="Hurt/Comfort">Hurt/Comfort</button>
+              <button class="example-tag" data-fill="Angst with a Happy Ending">Angst with a Happy Ending</button>
+              <button class="example-tag" data-fill="Fluff">Fluff</button>
+            </div>
+            <div class="example-group">
+              <h4>Setting</h4>
+              <button class="example-tag" data-fill="Modern Setting">Modern AU</button>
+              <button class="example-tag" data-fill="Historical">Historical AU</button>
+              <button class="example-tag" data-fill="Coffee Shops &amp; Cafés">Coffee Shop AU</button>
+            </div>
+          </div>
+        </details>
+
+        <div class="actions">
+          <button data-action="back">&larr; Back</button>
+          <span class="action-spacer"></span>
+          <button class="primary" data-action="next" disabled>Continue &rarr;</button>
+        </div>
+      </section>
+
+      <!-- ====== Screen 5: Blocked tags ====== -->
+      <section class="screen" data-screen="5" hidden>
+        <h2>Anything to block?</h2>
+        <p class="lead">Tags you never want to see. Hard filter — these will never appear in your feed.</p>
+        <div class="search-block">
+          <input type="text" id="block-search" placeholder="Type a tag to block" autocomplete="off" />
+          <div id="block-dropdown" class="autocomplete-dropdown" hidden></div>
+        </div>
+        <div id="block-chips" class="chips"></div>
+        <p class="hint">Optional. Skip if nothing comes to mind.</p>
+        <div class="actions">
+          <button data-action="back">&larr; Back</button>
+          <span class="action-spacer"></span>
+          <button data-action="skip">Skip</button>
+          <button class="primary" data-action="next">Continue &rarr;</button>
+        </div>
+      </section>
+
+      <!-- ====== Screen 6: Structural ====== -->
+      <section class="screen" data-screen="6" hidden>
+        <h2>What shape do you like your fics?</h2>
+        <p class="lead">Defaults are sensible — adjust if you have strong preferences.</p>
+
+        <div class="form-row">
+          <label for="min-words">Minimum word count</label>
+          <select id="min-words">
+            <option value="">No minimum</option>
+            <option value="1000">1,000+ (drabbles only above)</option>
+            <option value="10000">10,000+</option>
+            <option value="30000">30,000+</option>
+            <option value="50000">50,000+</option>
+            <option value="100000">100,000+</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="max-words">Maximum word count</label>
+          <select id="max-words">
+            <option value="">No maximum</option>
+            <option value="10000">Under 10,000</option>
+            <option value="30000">Under 30,000</option>
+            <option value="100000">Under 100,000</option>
+            <option value="300000">Under 300,000</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label>Ratings (uncheck any you don't want)</label>
+          <div class="checkbox-row">
+            <label><input type="checkbox" class="rating-cb" value="G" checked /> General</label>
+            <label><input type="checkbox" class="rating-cb" value="T" checked /> Teen</label>
+            <label><input type="checkbox" class="rating-cb" value="M" checked /> Mature</label>
+            <label><input type="checkbox" class="rating-cb" value="E" checked /> Explicit</label>
+            <label><input type="checkbox" class="rating-cb" value="Not Rated" checked /> Not Rated</label>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label><input type="checkbox" id="complete-only" /> Only show complete fics (no works in progress)</label>
+        </div>
+
+        <div class="actions">
+          <button data-action="back">&larr; Back</button>
+          <span class="action-spacer"></span>
+          <button class="primary" data-action="next">Continue &rarr;</button>
+        </div>
+      </section>
+
+      <!-- ====== Screen 7: Loved fics ====== -->
+      <section class="screen" data-screen="7" hidden>
+        <h2>Tell me about fics you've loved</h2>
+        <p class="lead">Even 3 fics helps a lot. Paste AO3 URLs, one per line.</p>
+        <textarea id="loved-urls" rows="5" placeholder="https://archiveofourown.org/works/12345&#10;https://archiveofourown.org/works/67890"></textarea>
+        <div class="loved-actions">
+          <button id="add-loved-btn">Add these</button>
+          <span id="loved-status" class="hint"></span>
+        </div>
+        <ul id="loved-list" class="loved-list"></ul>
+        <div class="actions">
+          <button data-action="back">&larr; Back</button>
+          <span class="action-spacer"></span>
+          <button data-action="skip">Skip</button>
+          <button class="primary" data-action="next">Continue &rarr;</button>
+        </div>
+      </section>
+
+      <!-- ====== Screen 8: Seed the feed ====== -->
+      <section class="screen" data-screen="8" hidden>
+        <h2>Ready to see your feed?</h2>
+        <p class="lead">I can fetch some fics now (about 30 seconds), or you can browse AO3 yourself first and I'll learn as you go.</p>
+        <div class="big-choices">
+          <button class="big-choice" data-seed="fetch">
+            <div class="big-title">Fetch some fics for me</div>
+            <div class="big-sub">3 quick fetches from your top tags/fandoms, 10 seconds apart.</div>
+          </button>
+          <button class="big-choice" data-seed="browse">
+            <div class="big-title">I'll browse first</div>
+            <div class="big-sub">Skip the seeding. Just browse AO3 normally; the cache fills as you go.</div>
+          </button>
+        </div>
+        <div id="seed-progress" class="seed-progress" hidden>
+          <p id="seed-message">&hellip;</p>
+          <div class="progress-bar"><div id="seed-fill"></div></div>
+        </div>
+        <div class="actions">
+          <button data-action="back">&larr; Back</button>
+          <span class="action-spacer"></span>
+          <button class="primary" data-action="next" id="screen8-next" disabled>Continue &rarr;</button>
+        </div>
+      </section>
+
+      <!-- ====== Screen 9: Done ====== -->
+      <section class="screen" data-screen="9" hidden>
+        <h2>All done.</h2>
+        <p class="lead">Your taste profile is saved. Your feed is ready.</p>
+        <div id="done-summary" class="done-summary"></div>
+        <div class="actions">
+          <button data-action="back">&larr; Back</button>
+          <span class="action-spacer"></span>
+          <button class="primary" id="open-feed">Open my feed &rarr;</button>
+        </div>
+      </section>
+
+    </main>
+
+    <div id="toast" class="toast" hidden></div>
+  </div>
+
+  <script src="db.js"></script>
+  <script src="onboarding.js"></script>
+</body>
+</html>

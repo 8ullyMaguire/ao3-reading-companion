@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My AO3 Algorithm — My Reading</title>
+  <link rel="stylesheet" href="myreading.css" />
+</head>
+<body>
+
+  <header class="page-header">
+    <div class="header-inner">
+      <div class="brand">
+        <h1>My Reading</h1>
+        <p class="subtitle" id="page-subtitle">Loading&hellip;</p>
+      </div>
+      <nav class="header-nav">
+        <button id="nav-feed" class="ghost" type="button">← Back to feed</button>
+        <button id="nav-check-updates" class="ghost" type="button" title="Check whether your active reading fics have new chapters">Check for updates</button>
+        <button id="nav-rerun" class="ghost" type="button">Re-run setup</button>
+        <button id="nav-preferences" class="ghost" type="button">Preferences</button>
+        <button id="nav-debug" class="ghost" type="button">Debug</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-main" id="page-main">
+
+    <!-- Save for Later -->
+    <section class="reading-section section-save" data-section="save_for_later">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">🔖</span>Save for Later
+        </h2>
+        <span class="section-count" id="count-save">0</span>
+      </div>
+      <div class="section-cards" id="cards-save"></div>
+      <div class="section-empty" id="empty-save" hidden>
+        <p>No saves yet. Click the <strong>Save for Later</strong> button on any fic page.</p>
+      </div>
+    </section>
+
+    <!-- Reading -->
+    <section class="reading-section section-reading" data-section="reading">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">📖</span>Reading
+        </h2>
+        <span class="section-count" id="count-reading">0</span>
+      </div>
+
+      <div class="sub-section">
+        <h3 class="sub-section-title">In Progress</h3>
+        <div class="section-cards" id="cards-in-progress"></div>
+        <div class="section-empty" id="empty-in-progress" hidden>
+          <p>No fics in progress. Start reading a fic to see it here.</p>
+        </div>
+      </div>
+
+      <div class="sub-section">
+        <h3 class="sub-section-title">Caught Up on WIP</h3>
+        <div class="section-cards" id="cards-caught-up"></div>
+        <div class="section-empty" id="empty-caught-up" hidden>
+          <p>No WIPs you're caught up on. Read a WIP to its current chapter to see it here.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Read -->
+    <section class="reading-section section-read" data-section="read">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-icon" aria-hidden="true">✓</span>Read
+        </h2>
+        <span class="section-count" id="count-read">0</span>
+      </div>
+      <div class="section-cards" id="cards-read"></div>
+      <div class="section-empty" id="empty-read" hidden>
+        <p>No completed fics yet. Finish a fic to see it here.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="db.js"></script>
+  <script src="myreading.js"></script>
+</body>
+</html>

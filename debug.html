@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My AO3 Algorithm — Debug Console</title>
+  <link rel="stylesheet" href="debug.css" />
+</head>
+<body>
+  <header>
+    <h1>My AO3 Algorithm &mdash; Debug Console</h1>
+    <p class="subtitle">A diagnostic tool for inspecting and editing the local database.</p>
+    <div id="counts" class="counts">Loading counts&hellip;</div>
+    <div class="header-actions">
+      <button id="reload-all">Reload everything</button>
+      <button id="reset-settings">Reset settings to defaults</button>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ===== Last scrape result ===== -->
+    <section id="last-scrape-section">
+      <h2>Last scrape result</h2>
+      <p class="hint">Auto-updates whenever the extension scrapes an AO3 page. Browse AO3 to see it change.</p>
+      <div id="last-scrape">No scrape recorded yet. Browse AO3 (logged in) to populate.</div>
+    </section>
+
+    <!-- ===== Scoring test (Phase 5) ===== -->
+    <section id="scoring-section">
+      <h2>Scoring test</h2>
+      <p class="hint">Run the scoring engine against the cached fics. Expand any row to see exactly which signals contributed.</p>
+
+      <div class="scoring-controls">
+        <label>
+          Row type
+          <select id="score-rowtype">
+            <option value="similar_to_tastes">similar_to_tastes (jitter ±1.5)</option>
+            <option value="discover_new">discover_new (jitter ±4)</option>
+            <option value="popular">popular (jitter ±1)</option>
+            <option value="hidden_gems">hidden_gems (jitter ±1)</option>
+            <option value="your_authors">your_authors (jitter 0)</option>
+          </select>
+        </label>
+        <button id="score-all-btn">Score all cached fics</button>
+        <input type="text" id="score-one-id" placeholder="ficId (e.g. 12345)" />
+        <button id="score-one-btn">Score one fic</button>
+        <label class="show-rejected-label">
+          <input type="checkbox" id="score-show-rejected" /> show rejected
+        </label>
+      </div>
+
+      <div id="score-stats" class="score-stats">No scoring run yet.</div>
+      <div id="score-results" class="score-results"></div>
+    </section>
+
+    <!-- ===== Preferences ===== -->
+    <section data-store="preferences">
+      <h2>Preferences <span class="count" id="count-preferences"></span></h2>
+      <div class="store-actions">
+        <button class="danger" data-clear="preferences">Clear entire drawer</button>
+      </div>
+
+      <details open>
+        <summary>Add records</summary>
+
+        <div class="add-form">
+          <h3>Preferred tag</h3>
+          <input type="text" id="pt-value" placeholder="tag name (e.g. Slow Burn)" />
+          <select id="pt-weight">
+            <option value="1">weight 1</option>
+            <option value="2">weight 2</option>
+            <option value="3" selected>weight 3</option>
+            <option value="4">weight 4</option>
+            <option value="5">weight 5</option>
+          </select>
+          <label><input type="checkbox" id="pt-locked" /> locked</label>
+          <button id="add-preferred-tag">Add / update</button>
+        </div>
+
+        <div class="add-form">
+          <h3>Blocked tag</h3>
+          <input type="text" id="bt-value" placeholder="tag name (e.g. Mpreg)" />
+          <button id="add-blocked-tag">Add / update</button>
+        </div>
+
+        <div class="add-form">
+          <h3>Preferred fandom</h3>
+          <input type="text" id="pf-value" placeholder="fandom name" />
+          <select id="pf-weight">
+            <option value="1">weight 1</option>
+            <option value="2">weight 2</option>
+            <option value="3" selected>weight 3</option>
+            <option value="4">weight 4</option>
+            <option value="5">weight 5</option>
+          </select>
+          <label><input type="checkbox" id="pf-locked" /> locked</label>
+          <button id="add-preferred-fandom">Add / update</button>
+        </div>
+
+        <div class="add-form">
+          <h3>Blocked author</h3>
+          <input type="text" id="ba-value" placeholder="author username" />
+          <button id="add-blocked-author">Add / update</button>
+        </div>
+
+        <div class="add-form">
+          <h3>Structural preferences (single record)</h3>
+          <input type="number" id="sp-min" placeholder="min words" />
+          <input type="number" id="sp-max" placeholder="max words" />
+          <div class="rating-row">
+            <label><input type="checkbox" class="sp-rating" value="G" /> G</label>
+            <label><input type="checkbox" class="sp-rating" value="T" /> T</label>
+            <label><input type="checkbox" class="sp-rating" value="M" /> M</label>
+            <label><input type="checkbox" class="sp-rating" value="E" /> E</label>
+            <label><input type="checkbox" class="sp-rating" value="Not Rated" /> Not Rated</label>
+          </div>
+          <label><input type="checkbox" id="sp-complete" /> complete only</label>
+          <button id="set-structural">Save structural</button>
+        </div>
+      </details>
+
+      <h3>Current records</h3>
+      <ul class="record-list" id="list-preferences">Loading&hellip;</ul>
+    </section>
+
+    <!-- ===== History ===== -->
+    <section data-store="history">
+      <h2>Reading history <span class="count" id="count-history"></span></h2>
+      <div class="store-actions">
+        <button class="danger" data-clear="history">Clear entire drawer</button>
+      </div>
+
+      <details>
+        <summary>Add a history record</summary>
+        <div class="add-form">
+          <input type="text" id="h-ficId" placeholder="ficId (e.g. 12345)" />
+          <input type="text" id="h-title" placeholder="title" />
+          <input type="text" id="h-author" placeholder="author" />
+          <input type="number" id="h-chapter" placeholder="lastChapterRead" />
+          <input type="number" id="h-scroll" placeholder="scrollProgress (0-100)" min="0" max="100" />
+          <input type="number" id="h-time" placeholder="readingTime (seconds)" />
+          <select id="h-verdict">
+            <option value="">no verdict</option>
+            <option value="loved">loved</option>
+            <option value="liked">liked</option>
+            <option value="meh">meh</option>
+            <option value="disliked">disliked</option>
+          </select>
+          <button id="add-history">Add / update</button>
+        </div>
+      </details>
+
+      <h3>Current records</h3>
+      <ul class="record-list" id="list-history">Loading&hellip;</ul>
+    </section>
+
+    <!-- ===== Save for Later (Phase 7d) ===== -->
+    <section data-store="saveForLater">
+      <h2>Save for Later <span class="count" id="count-saveForLater"></span></h2>
+      <p class="hint">
+        History records with <code>state === "save_for_later"</code>. Chapter
+        delta shows <em>chapters at save</em> → <em>current chapters in cache</em>.
+        Promote to "reading" manually, or delete to fully unsave.
+      </p>
+      <ul class="record-list" id="list-saveForLater">Loading&hellip;</ul>
+    </section>
+
+    <!-- ===== Dislike History (Phase 8) ===== -->
+    <section data-store="dislikeHistory">
+      <h2>Dislike History <span class="count" id="count-dislikeHistory"></span></h2>
+      <p class="hint">
+        Records of every applied "I don't like this" action. Each entry can be
+        undone if the affected preferences haven't been further modified since.
+        The Preferences dashboard has a friendlier version of this view.
+      </p>
+      <ul class="record-list" id="list-dislikeHistory">Loading&hellip;</ul>
+    </section>
+
+    <!-- ===== Fic cache ===== -->
+    <section data-store="ficCache">
+      <h2>Fic cache <span class="count" id="count-ficCache"></span></h2>
+      <div class="store-actions">
+        <button class="danger" data-clear="ficCache">Clear entire drawer</button>
+      </div>
+
+      <details>
+        <summary>Add a fic record</summary>
+        <div class="add-form">
+          <input type="text" id="f-ficId" placeholder="ficId" />
+          <input type="text" id="f-title" placeholder="title" />
+          <input type="text" id="f-author" placeholder="author" />
+          <input type="text" id="f-summary" placeholder="summary" />
+          <input type="text" id="f-fandoms" placeholder="fandoms (comma-separated)" />
+          <input type="text" id="f-relationships" placeholder="relationships (comma-separated)" />
+          <input type="text" id="f-characters" placeholder="characters (comma-separated)" />
+          <input type="text" id="f-freeform" placeholder="freeform tags (comma-separated)" />
+          <input type="text" id="f-warnings" placeholder="warnings (comma-separated)" />
+          <select id="f-rating">
+            <option value="">(rating)</option>
+            <option value="G">G</option>
+            <option value="T">T</option>
+            <option value="M">M</option>
+            <option value="E">E</option>
+            <option value="Not Rated">Not Rated</option>
+          </select>
+          <input type="number" id="f-words" placeholder="wordCount" />
+          <input type="text" id="f-chapters" placeholder="chapters (e.g. 5/10 or 1/1)" />
+          <input type="number" id="f-kudos" placeholder="kudos" />
+          <input type="number" id="f-hits" placeholder="hits" />
+          <input type="number" id="f-comments" placeholder="comments" />
+          <input type="number" id="f-bookmarks" placeholder="bookmarks" />
+          <label><input type="checkbox" id="f-complete" /> isComplete</label>
+          <button id="add-fic">Add / update</button>
+        </div>
+      </details>
+
+      <h3>Current records</h3>
+      <ul class="record-list" id="list-ficCache">Loading&hellip;</ul>
+    </section>
+
+    <!-- ===== Author affinity ===== -->
+    <section data-store="authorAffinity">
+      <h2>Author affinity <span class="count" id="count-authorAffinity"></span></h2>
+      <div class="store-actions">
+        <button class="danger" data-clear="authorAffinity">Clear entire drawer</button>
+      </div>
+
+      <details>
+        <summary>Add an author affinity record</summary>
+        <div class="add-form">
+          <input type="text" id="aa-author" placeholder="author username" />
+          <input type="number" id="aa-read" placeholder="ficsRead" />
+          <input type="number" id="aa-completed" placeholder="ficsCompleted" />
+          <input type="number" id="aa-time" placeholder="averageReadingTime (seconds)" />
+          <input type="number" id="aa-score" placeholder="affinityScore" step="any" />
+          <input type="text" id="aa-negcombos" placeholder="negativeTagCombos (comma-separated)" />
+          <button id="add-affinity">Add / update</button>
+        </div>
+      </details>
+
+      <h3>Current records</h3>
+      <ul class="record-list" id="list-authorAffinity">Loading&hellip;</ul>
+    </section>
+
+    <!-- ===== Custom rows ===== -->
+    <section data-store="customRows">
+      <h2>Custom feed rows <span class="count" id="count-customRows"></span></h2>
+      <div class="store-actions">
+        <button class="danger" data-clear="customRows">Clear entire drawer</button>
+      </div>
+
+      <details>
+        <summary>Add a custom row</summary>
+        <div class="add-form">
+          <input type="text" id="cr-name" placeholder="rowName (unique)" />
+          <input type="text" id="cr-include" placeholder="includeTags (comma-separated)" />
+          <input type="text" id="cr-exclude" placeholder="excludeTags (comma-separated)" />
+          <input type="number" id="cr-min" placeholder="min words" />
+          <input type="number" id="cr-max" placeholder="max words" />
+          <input type="text" id="cr-ratings" placeholder="ratings (e.g. T,M,E)" />
+          <label><input type="checkbox" id="cr-complete" /> completeOnly</label>
+          <select id="cr-sort">
+            <option value="recent">sortBy: recent</option>
+            <option value="kudos">sortBy: kudos</option>
+            <option value="hits">sortBy: hits</option>
+            <option value="words">sortBy: words</option>
+            <option value="random">sortBy: random</option>
+          </select>
+          <input type="number" id="cr-position" placeholder="position (display order)" />
+          <button id="add-row">Add / update</button>
+        </div>
+      </details>
+
+      <h3>Current records</h3>
+      <ul class="record-list" id="list-customRows">Loading&hellip;</ul>
+    </section>
+
+    <!-- ===== Settings ===== -->
+    <section data-store="settings">
+      <h2>Settings <span class="count" id="count-settings"></span></h2>
+      <p class="hint">Settings is a single record (id="main"). Use "Reset to defaults" up top, or edit fields here.</p>
+
+      <details>
+        <summary>Edit settings</summary>
+        <div class="add-form">
+          <label>scrapeDelaySeconds <input type="number" id="s-delay" /></label>
+          <label>scheduledPullIntervalHours <input type="number" id="s-pull" /></label>
+          <label>behavioralSignalsThreshold <input type="number" id="s-bsthreshold" /></label>
+          <label>historyRetentionDays (blank = never expire) <input type="number" id="s-retention" /></label>
+          <label>theme <select id="s-theme"><option value="dark">dark</option><option value="light">light</option></select></label>
+          <label><input type="checkbox" id="s-backoff" /> backoffOn429</label>
+          <label><input type="checkbox" id="s-bsenabled" /> behavioralSignalsEnabled</label>
+          <button id="save-settings">Save settings</button>
+        </div>
+      </details>
+
+      <h3>Current settings</h3>
+      <ul class="record-list" id="list-settings">Loading&hellip;</ul>
+    </section>
+
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="db.js"></script>
+  <script src="scoring.js"></script>
+  <script src="dislike.js"></script>
+  <script src="debug.js"></script>
+</body>
+</html>

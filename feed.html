@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My AO3 Algorithm — Feed</title>
+  <link rel="stylesheet" href="feed.css" />
+</head>
+<body>
+
+  <header class="page-header">
+    <div class="header-inner">
+      <div class="brand">
+        <h1>My AO3 Algorithm</h1>
+        <p class="taste-profile" id="taste-profile">Loading your taste profile&hellip;</p>
+      </div>
+      <nav class="header-nav">
+        <button id="nav-get-more" class="ghost" type="button" title="Fetch new fics from AO3 based on your preferences">Get more</button>
+        <button id="nav-rerun" class="ghost">Re-run setup</button>
+        <button id="nav-myreading" class="ghost" hidden>→ My Reading</button>
+        <button id="nav-preferences" class="ghost">Preferences</button>
+        <button id="nav-debug" class="ghost">Debug</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Logged-out banner (cosmetic; feed still renders below) -->
+  <div id="logout-banner" class="page-banner warning" hidden>
+    <div class="banner-inner">
+      <div>
+        <strong>You appear to be logged out of AO3.</strong>
+        Your existing feed still works, but new fics won't be cached as you browse.
+      </div>
+      <a class="banner-btn" href="https://archiveofourown.org/users/login" target="_blank" rel="noopener">Log in to AO3</a>
+    </div>
+  </div>
+
+  <!-- "Setup not done" interstitial -->
+  <section id="needs-setup" class="needs-setup" hidden>
+    <div class="needs-setup-inner">
+      <h2>Run setup first.</h2>
+      <p>The feed needs a taste profile to recommend from. Setup takes about two minutes.</p>
+      <button id="needs-setup-btn" class="primary">Open setup</button>
+    </div>
+  </section>
+
+  <main id="feed-main" class="feed-main">
+
+    <!-- Feed-wide toolbar: applies to every row below. -->
+    <div class="feed-toolbar">
+      <div class="feed-toolbar-left">
+        <button id="manage-rows-btn" class="ghost" type="button" title="Show, hide, and reorder feed rows">☰ Manage rows</button>
+        <button id="collapse-all-btn" class="ghost" type="button" hidden title="Collapse expanded summaries, tag lists, fandom lists, and grid cards (Esc)">Collapse all</button>
+        <span id="refresh-pill" class="refresh-pill" hidden><span class="refresh-pill-spinner" aria-hidden="true">↻</span> <span id="refresh-pill-text">Refreshing…</span></span>
+      </div>
+      <div class="feed-toolbar-right">
+        <div class="text-size-toggle" role="group" aria-label="Text size">
+          <button class="text-size-btn" data-size="S" type="button" title="Small text" aria-label="Small text">S</button>
+          <button class="text-size-btn" data-size="M" type="button" title="Medium text" aria-label="Medium text">M</button>
+          <button class="text-size-btn" data-size="L" type="button" title="Large text" aria-label="Large text">L</button>
+        </div>
+        <div class="view-toggle" role="group" aria-label="View mode">
+          <button class="view-toggle-btn" data-view="list" type="button">List</button>
+          <button class="view-toggle-btn" data-view="grid" type="button">Grid</button>
+        </div>
+        <button id="refresh-all-btn" class="ghost" title="Re-score and reload every row">↻ Refresh all</button>
+      </div>
+    </div>
+
+    <!-- Filter bar — visible when a tag or fandom is selected, applies across ALL rows. -->
+    <div id="tag-bar" class="tag-bar" hidden>
+      <span class="tag-bar-label" id="tag-bar-label">Filtering by tag:</span>
+      <span class="tag-bar-tag" id="tag-bar-name"></span>
+      <button id="tag-bar-clear" class="ghost" type="button">Clear</button>
+    </div>
+
+    <!-- Solo-mode back bar — visible when user clicked "See all in X". -->
+    <div id="solo-bar" class="solo-bar" hidden>
+      <button id="solo-back-btn" class="ghost" type="button">← Back to all rows</button>
+      <span class="solo-bar-label">Viewing only: <strong id="solo-bar-name"></strong></span>
+    </div>
+
+    <!-- Rows get rendered into here by feed.js, driven by settings.feedRowConfig. -->
+    <div id="rows-container" class="rows-container"></div>
+
+    <!-- Shown when EVERY row is either hidden or empty — suggests getting more data. -->
+    <div id="no-rows-state" class="empty-state" hidden>
+      <h3>Nothing to show yet.</h3>
+      <p>Every row is either hidden or empty. Try showing more rows (Manage rows) or browsing a few tag/fandom pages on AO3 to fill your cache.</p>
+      <div class="empty-actions">
+        <a class="primary" href="https://archiveofourown.org/" target="_blank" rel="noopener">Open AO3</a>
+        <button id="no-rows-rerun" class="ghost">Re-run setup</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Why-this modal (unchanged from Phase 6) -->
+  <div id="why-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+      <h2 id="modal-title">Why this fic?</h2>
+      <p id="modal-fic-line" class="modal-fic-line"></p>
+
+      <p id="modal-match-strength" class="modal-match-strength"></p>
+
+      <h4 class="modal-h4">What put it here</h4>
+      <ul id="modal-reasons" class="modal-reasons"></ul>
+
+      <details class="modal-numbers">
+        <summary>Show the raw numbers</summary>
+        <pre id="modal-breakdown"></pre>
+      </details>
+    </div>
+  </div>
+
+  <!-- Manage-rows modal (new in 7a) -->
+  <div id="manage-rows-modal" class="modal-backdrop" hidden>
+    <div class="modal modal-manage" role="dialog" aria-modal="true" aria-labelledby="manage-title">
+      <button class="modal-close" id="manage-close" aria-label="Close">&times;</button>
+      <h2 id="manage-title">Manage rows</h2>
+      <p class="modal-sub">Show, hide, and reorder the rows on your feed. Changes save instantly.</p>
+
+      <div class="manage-create-row">
+        <button id="manage-create-btn" class="ghost" type="button">+ Create custom row</button>
+      </div>
+
+      <ul id="manage-rows-list" class="manage-rows-list"></ul>
+
+      <div class="manage-footer">
+        <button id="manage-reset" class="ghost" type="button">Reset to defaults</button>
+        <button id="manage-done" class="primary" type="button">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row builder modal (Phase 11). Opens from Manage Rows. -->
+  <div id="rowbuilder-modal" class="modal-backdrop" hidden>
+    <div class="modal modal-rowbuilder" role="dialog" aria-modal="true" aria-labelledby="rb-title">
+      <button class="modal-close" id="rb-close" aria-label="Close">&times;</button>
+      <h2 id="rb-title">Create custom row</h2>
+      <p class="modal-sub" id="rb-sub">Build a row that pulls fics matching your filters. Rows save to your local profile.</p>
+
+      <div class="rb-form">
+
+        <div class="rb-section">
+          <h3 class="rb-section-title">Basic</h3>
+          <label class="rb-field">
+            <span class="rb-label">Name</span>
+            <input type="text" id="rb-title-input" class="rb-input" placeholder="e.g. Werewolf Long Reads" maxlength="80" />
+          </label>
+          <label class="rb-field">
+            <span class="rb-label">Description <span class="rb-hint">(optional, shown under the row header)</span></span>
+            <input type="text" id="rb-description-input" class="rb-input" placeholder="e.g. 50k+ words, complete, sorted by kudos" maxlength="160" />
+          </label>
+        </div>
+
+        <div class="rb-section">
+          <h3 class="rb-section-title">Filters</h3>
+
+          <div class="rb-field">
+            <span class="rb-label">Include tags <span class="rb-hint">(every selected tag must be present)</span></span>
+            <div class="rb-multi" id="rb-include-tags"></div>
+            <div class="rb-search-block">
+              <input type="text" id="rb-include-tag-input" class="rb-input" placeholder="Type to search AO3 tags…" autocomplete="off" />
+              <div id="rb-include-tag-dropdown" class="autocomplete-dropdown" hidden></div>
+            </div>
+          </div>
+
+          <div class="rb-field">
+            <span class="rb-label">Exclude tags <span class="rb-hint">(any match disqualifies the fic)</span></span>
+            <div class="rb-multi" id="rb-exclude-tags"></div>
+            <div class="rb-search-block">
+              <input type="text" id="rb-exclude-tag-input" class="rb-input" placeholder="Type to search AO3 tags…" autocomplete="off" />
+              <div id="rb-exclude-tag-dropdown" class="autocomplete-dropdown" hidden></div>
+            </div>
+          </div>
+
+          <div class="rb-field">
+            <span class="rb-label">Include fandoms <span class="rb-hint">(any of these counts as a match)</span></span>
+            <div class="rb-multi" id="rb-include-fandoms"></div>
+            <div class="rb-search-block">
+              <input type="text" id="rb-include-fandom-input" class="rb-input" placeholder="Type to search AO3 fandoms…" autocomplete="off" />
+              <div id="rb-include-fandom-dropdown" class="autocomplete-dropdown" hidden></div>
+            </div>
+          </div>
+
+          <div class="rb-field">
+            <span class="rb-label">Author <span class="rb-hint">(optional, exact AO3 username match)</span></span>
+            <input type="text" id="rb-author-input" class="rb-input" placeholder="e.g. astolat" />
+            <span class="rb-help" id="rb-author-help" hidden>Tags optional — leave them empty to show all fics by this author.</span>
+          </div>
+
+          <div class="rb-field rb-row">
+            <label class="rb-subfield">
+              <span class="rb-label">Min words</span>
+              <select id="rb-minwords" class="rb-input">
+                <option value="">No minimum</option>
+                <option value="1000">1,000+</option>
+                <option value="5000">5,000+</option>
+                <option value="10000">10,000+</option>
+                <option value="30000">30,000+</option>
+                <option value="50000">50,000+</option>
+                <option value="100000">100,000+</option>
+              </select>
+            </label>
+            <label class="rb-subfield">
+              <span class="rb-label">Max words</span>
+              <select id="rb-maxwords" class="rb-input">
+                <option value="">No maximum</option>
+                <option value="10000">Up to 10,000</option>
+                <option value="30000">Up to 30,000</option>
+                <option value="50000">Up to 50,000</option>
+                <option value="100000">Up to 100,000</option>
+                <option value="200000">Up to 200,000</option>
+              </select>
+            </label>
+          </div>
+
+          <fieldset class="rb-fieldset">
+            <legend>Ratings to include</legend>
+            <label class="rb-cb"><input type="checkbox" class="rb-rating" value="G" checked /> General</label>
+            <label class="rb-cb"><input type="checkbox" class="rb-rating" value="T" checked /> Teen</label>
+            <label class="rb-cb"><input type="checkbox" class="rb-rating" value="M" checked /> Mature</label>
+            <label class="rb-cb"><input type="checkbox" class="rb-rating" value="E" checked /> Explicit</label>
+            <label class="rb-cb"><input type="checkbox" class="rb-rating" value="Not Rated" checked /> Not Rated</label>
+          </fieldset>
+
+          <label class="rb-cb"><input type="checkbox" id="rb-complete-only" /> Complete only</label>
+          <label class="rb-cb"><input type="checkbox" id="rb-exclude-read" /> Exclude fics already in my reading history</label>
+        </div>
+
+        <div class="rb-section">
+          <h3 class="rb-section-title">Display</h3>
+
+          <div class="rb-field">
+            <span class="rb-label">Sort by</span>
+            <select id="rb-sortby" class="rb-input">
+              <option value="relevance">Relevance to your taste (default)</option>
+              <option value="kudos">Kudos (highest first)</option>
+              <option value="hits">Hits (highest first)</option>
+              <option value="words_desc">Word count (longest first)</option>
+              <option value="words_asc">Word count (shortest first)</option>
+              <option value="recent">Most recently updated</option>
+              <option value="random">Random</option>
+            </select>
+          </div>
+
+          <div class="rb-field">
+            <span class="rb-label">Symbol &amp; color</span>
+            <div class="rb-palette" id="rb-palette"></div>
+          </div>
+        </div>
+
+        <p id="rb-error" class="rb-error" hidden></p>
+      </div>
+
+      <div class="rb-footer">
+        <button id="rb-cancel" class="ghost" type="button">Cancel</button>
+        <button id="rb-save" class="primary" type="button">Save row</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="db.js"></script>
+  <script src="scoring.js"></script>
+  <script src="dislike.js"></script>
+  <script src="feed.js"></script>
+</body>
+</html>
