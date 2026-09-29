@@ -806,7 +806,11 @@ function renderCard(item, preferredTagMapArg, preferredFandomMapArg) {
       const overflow = i >= MAX_CHIPS;
       const cls = `chip ${c.kind}${matched ? " matched" : ""}${overflow ? " overflow" : ""}`;
       const heart = matched ? `<span class="heart-mark">♥</span>` : "";
-      return `<button type="button" class="${cls}" data-action="filter" data-filter-kind="tag" data-filter-value="${escapeHtml(tagLower)}" data-filter-display="${escapeHtml(c.text)}">${heart}${escapeHtml(c.text)}</button>`;
+      // data-tag is what the prefer/block menu acts on. The chip's own click
+      // still filters, so the new affordance is additive rather than a
+      // replacement: right-click (or long-press) the chip for prefer/block,
+      // left-click to filter as before.
+      return `<button type="button" class="${cls}" data-action="filter" data-filter-kind="tag" data-filter-value="${escapeHtml(tagLower)}" data-filter-display="${escapeHtml(c.text)}" data-tag="${escapeHtml(c.text)}" title="Click to filter · right-click to prefer or block">${heart}${escapeHtml(c.text)}</button>`;
     });
     if (remainingChips > 0) {
       chipPieces.push(`<button type="button" class="chip toggle-tags" data-action="toggle-tags" data-collapsed-label="+${remainingChips} more" data-expanded-label="Show fewer">+${remainingChips} more</button>`);
@@ -833,7 +837,8 @@ function renderCard(item, preferredTagMapArg, preferredFandomMapArg) {
   const actionsHtml = `
     <div class="card-actions">
       <button class="why" data-action="why">Why this?</button>
-      <button class="dislike" data-action="dislike">I don't like this</button>
+      <button class="mark-read" data-action="mark-read">I\'ve read this</button>
+      <button class="dislike" data-action="dislike">I don\'t like this</button>
     </div>
   `;
 
@@ -1017,6 +1022,18 @@ async function renderAllRows() {
     return;
   }
   $("no-rows-state").hidden = true;
+
+  // Issue #1: the mined-tags row sits above the recommendation rows. Rendered
+  // here rather than inside the row loop because it is not a row — it is one
+  // summary across every fic the reader has browsed.
+  try {
+    const suggest = await buildSuggestionRow(ctx);
+    if (suggest && !suggest.hidden) container.appendChild(suggest);
+  } catch (e) {
+    // A failure here must not take the whole feed down. The recommendations
+    // are the feature; the suggestions are an extra.
+    console.error("[My AO3 Algorithm] suggestion row failed:", e);
+  }
 
   for (const { id } of visibleRows) {
     const def = ROW_DEFINITIONS[id];
@@ -1288,7 +1305,23 @@ function collapseAll() {
 function wireFeedEvents() {
   const root = $("rows-container");
 
-  root.addEventListener("click", (ev) => {
+  // Right-click (or long-press) a tag chip to prefer or block it (issue #2).
+  // The browser menu is suppressed only for chips that actually carry a tag,
+  // so the native menu still works everywhere else in the feed.
+  root.addEventListener("contextmenu", async (ev) => {
+    const chip = ev.target.closest("[data-action='filter'][data-tag]");
+    if (!chip || !chip.dataset.tag) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const choice = await showTagPreferenceMenu(chip.dataset.tag, chip);
+    if (!choice) return;
+    if (choice === "prefer") await handleTagPreference(chip.dataset.tag, true);
+    else if (choice === "block") await handleTagPreference(chip.dataset.tag, false);
+  });
+
+  // async: the mark-read and prefer/block handlers below write to IndexedDB
+  // and re-render, so they must be awaited rather than fired and forgotten.
+  root.addEventListener("click", async (ev) => {
     // Row-level actions first (live in the row header, outside any .card).
     const subsSyncBtn = ev.target.closest("[data-action='subs-sync']");
     if (subsSyncBtn) {
@@ -1359,6 +1392,16 @@ function wireFeedEvents() {
         selectFilter(value, display, kind);
       }
 
+    } else if (action === "mark-read") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      await handleCardMarkRead(interactive, card);
+
+    } else if (action === "tag-prefer" || action === "tag-block" || action === "tag-unprefer") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      await handleTagPreference(interactive.dataset.tag, action === "tag-prefer");
+
     } else if (action === "toggle-tags") {
       const tagsRow = card.querySelector(".card-tags");
       const wasCollapsed = tagsRow.classList.contains("tags-collapsed");
@@ -1393,6 +1436,252 @@ function wireFeedEvents() {
       });
     }
   });
+}
+
+// ---------- Suggested tags row (issue #1, third ask) ----------
+//
+// "Mine the tags from fics you browse so you can add them with one click."
+//
+// Rendered above the feed rows rather than buried in preferences, because the
+// suggestion is only useful at the moment the reader has the fic in front of
+// them. A panel in preferences is a panel nobody opens.
+//
+// Built from the reader's own fics — ficCache joined against history — so it
+// needs no network and no server. Every chip carries its own count, because a
+// tag seen twice out of 12 fics and one seen 2 of 3 are different claims and
+// presenting them identically would be a lie by omission.
+//
+// Decided chips grey out rather than vanish: a reader who just blocked a tag
+// should see that it happened, and a chip that reappears on the next render
+// looks like the click did nothing.
+async function buildSuggestionRow(ctx) {
+  const section = document.createElement("section");
+  section.className = "suggest-row";
+
+  const historyIds = ctx.historyFicIds || new Set();
+  const browsed = ctx.allFics.filter(f => f && f.ficId && historyIds.has(f.ficId));
+
+  const [prefRecs, blockedRecs] = await Promise.all([
+    getPreferencesByType("preferred_tag"),
+    getPreferencesByType("blocked_tag")
+  ]);
+  const existing = {
+    preferred: new Set(prefRecs.map(r => String(r.value).toLowerCase())),
+    blocked: new Set(blockedRecs.map(r => String(r.value).toLowerCase()))
+  };
+
+  const suggestions = mineTagSuggestions(browsed, existing);
+
+  if (suggestions.length === 0) {
+    section.hidden = true;
+    return section;
+  }
+
+  const inner = document.createElement("div");
+  inner.className = "suggest-inner";
+
+  const head = document.createElement("div");
+  head.className = "suggest-head";
+  const title = document.createElement("span");
+  title.className = "suggest-title";
+  title.textContent = "Tags from what you've read";
+  const note = document.createElement("span");
+  note.className = "suggest-note";
+  note.textContent = `mined from ${browsed.length} ${browsed.length === 1 ? "fic" : "fics"} — click to prefer, right-click to block`;
+  head.appendChild(title);
+  head.appendChild(note);
+
+  const chips = document.createElement("div");
+  chips.className = "suggest-chips";
+
+  for (const s of suggestions) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "suggest-chip";
+    chip.dataset.action = "filter";
+    chip.dataset.filterKind = "tag";
+    chip.dataset.filterValue = s.tag;
+    chip.dataset.filterDisplay = s.display;
+    chip.dataset.tag = s.display;
+    chip.title = `On ${s.ficCount} of ${browsed.length} fics you've read (${Math.round(s.ratio * 100)}%)`;
+
+    const label = document.createElement("span");
+    label.textContent = s.display;
+    const count = document.createElement("span");
+    count.className = "suggest-count";
+    count.textContent = String(s.ficCount);
+    chip.appendChild(label);
+    chip.appendChild(count);
+    chips.appendChild(chip);
+  }
+
+  inner.appendChild(head);
+  inner.appendChild(chips);
+  section.appendChild(inner);
+  return section;
+}
+
+// A two-item menu anchored to the chip. Resolves "prefer" | "block" | null.
+//
+// A native <dialog> or a window.prompt would each be wrong here: prompt is
+// blocking and cannot offer two clear choices, and a modal steals focus from a
+// feed the reader is scanning. A small positioned menu is the least ceremony
+// that still makes the two options unambiguous.
+function showTagPreferenceMenu(tag, anchor) {
+  return new Promise(resolve => {
+    document.querySelectorAll(".maa-tag-menu").forEach(m => m.remove());
+
+    const menu = document.createElement("div");
+    menu.className = "maa-tag-menu";
+    menu.setAttribute("role", "menu");
+
+    const mk = (label, value, cls) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "maa-tag-menu-item" + (cls ? " " + cls : "");
+      b.textContent = label;
+      b.setAttribute("role", "menuitem");
+      b.addEventListener("click", () => { close(value); });
+      return b;
+    };
+
+    const label = document.createElement("div");
+    label.className = "maa-tag-menu-label";
+    label.textContent = tag;
+    menu.appendChild(label);
+    menu.appendChild(mk("♥ Prefer this tag", "prefer", "prefer"));
+    menu.appendChild(mk("⊘ Block this tag", "block", "block"));
+
+    document.body.appendChild(menu);
+
+    // Flip the menu if it would run off the viewport, so a chip near the
+    // right edge does not push half the menu into nothing.
+    const r = anchor.getBoundingClientRect();
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    let left = r.left, top = r.bottom + 6;
+    if (left + mw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - mw - 8);
+    if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
+    menu.style.left = left + "px";
+    menu.style.top = top + "px";
+
+    let done = false;
+    function close(value) {
+      if (done) return;
+      done = true;
+      document.removeEventListener("mousedown", onAway, true);
+      document.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+      menu.remove();
+      resolve(value);
+    }
+    function onAway(e) { if (!menu.contains(e.target)) close(null); }
+    function onKey(e) { if (e.key === "Escape") { e.preventDefault(); close(null); } }
+
+    setTimeout(() => {
+      document.addEventListener("mousedown", onAway, true);
+      document.addEventListener("keydown", onKey, true);
+    }, 0);
+    window.addEventListener("resize", () => close(null));
+    window.addEventListener("scroll", () => close(null), true);
+  });
+}
+
+// ---------- Mark a card read from the feed (issue #1) ----------
+//
+// A card in the feed is a recommendation the reader did not act on, so
+// "I've read this" here means "I have already read this elsewhere" — which is
+// exactly the case the read-history filter cannot catch on its own, and the
+// reason the reported bug survived for as long as it did: a reader who read a
+// fic on their phone and never opened it here has no local history for it.
+//
+// This creates the history record the filter needs, via the same VISIT path a
+// real page view takes, so there is exactly one code path that produces a
+// history record rather than two that can disagree.
+async function handleCardMarkRead(btn, card) {
+  const item = card && card._item;
+  const fic = item && item.fic;
+  if (!fic || !fic.ficId) return;
+  if (btn.disabled) return;
+  btn.disabled = true;
+  const wasRead = btn.dataset.read === "true";
+  try {
+    const reply = await browser.runtime.sendMessage({
+      type: "MARK_READ",
+      ficId: fic.ficId,
+      title: fic.title,
+      author: fic.author,
+      // parseChaptersSnapshot lives in db.js and handles both "12/34" and a
+      // bare "12" (total null). We want `total` — the chapter count, which is
+      // what "read" means. `current` is where they stopped, which is the
+      // opposite of the claim being made.
+      chapterTotal: parseChaptersSnapshot(fic.chapters)?.total ?? null,
+      read: !wasRead,
+      timestamp: new Date().toISOString()
+    });
+    if (reply && reply.ok) {
+      btn.dataset.read = reply.read ? "true" : "false";
+      btn.textContent = reply.read ? "Read ✓ — undo" : "I've read this";
+      if (reply.read) {
+        toast(`Marked read: ${fic.title}`);
+        // Re-render so the card leaves the rows. Without this the card stays
+        // visible while the filter would have removed it, and the reader
+        // clicks again, and gets a second history write.
+        setTimeout(() => renderAllRows(), 900);
+      }
+    } else {
+      toast(`Couldn't mark read: ${(reply && reply.reason) || "unknown"}`, true);
+    }
+  } catch (e) {
+    console.error("[My AO3 Algorithm] mark read failed:", e);
+    toast("Couldn't mark read", true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---------- Prefer / block a tag from a card chip (issue #2) ----------
+//
+// Reached by right-clicking (or long-pressing) a tag chip, so the existing
+// left-click filter is untouched. The alternative — a visible "prefer" button
+// on every chip — puts 20 controls on every card and buries the two actions a
+// reader actually uses.
+//
+// Existing preferences are respected: a tag that is already preferred is not
+// re-added, and one that is already blocked is not blocked twice. That matters
+// because setPreferredTag does a blind put keyed on type:value, so a
+// double-click would silently reset a weight the user had tuned.
+async function handleTagPreference(tagText, prefer) {
+  if (!tagText) return;
+  const value = String(tagText).trim();
+  if (!value) return;
+  try {
+    if (prefer) {
+      const existing = await getPreferredTagWeight(value);
+      if (existing != null) {
+        toast(`"${value}" is already a preferred tag`);
+        return;
+      }
+      // 1.0 is the neutral default weight; the reader can tune it in
+      // preferences.js, and lock it so onboarding does not overwrite it.
+      await setPreferredTag(value, 1.0, true);
+      toast(`Added "${value}" to preferred tags`);
+    } else {
+      const existing = await dbGet("preferences", `blocked_tag:${value}`);
+      if (existing) {
+        toast(`"${value}" is already blocked`);
+        return;
+      }
+      await setBlockedTag(value);
+      toast(`Blocked "${value}"`);
+    }
+    // Re-render so the score and the chip hearts reflect the new preference
+    // immediately, rather than on the next feed open.
+    renderAllRows();
+  } catch (e) {
+    console.error("[My AO3 Algorithm] tag preference failed:", e);
+    toast("Couldn't update that tag", true);
+  }
 }
 
 // ---------- View mode (List / Grid) — persisted, applies feed-wide ----------

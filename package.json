@@ -1,0 +1,13 @@
+{
+  "name": "ao3-reading-companion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Test scripts for the AO3 reading companion extension. The extension itself has no build step and no dependencies.",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test 'test/*.test.mjs'",
+    "check": "node tools/check-read-filter.mjs",
+    "verify": "VERIFY=1 node tools/check-read-filter.mjs"
+  },
+  "license": "MIT"
+}

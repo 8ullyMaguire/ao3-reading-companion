@@ -1785,3 +1785,98 @@ body.view-grid .card.grid-expanded {
   color: #fff;
 }
 .dislike-pattern-actions .primary:hover { background: #ff7777; border-color: #ff7777; }
+
+/* ---- Issue #1/#2: mark-read card action + tag prefer/block menu ---- */
+
+.card-actions .mark-read {
+  background: transparent;
+  border: 1px solid #2e8f4e;
+  color: #2e8f4e;
+  padding: 3px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85em;
+}
+.card-actions .mark-read:hover { background: #2e8f4e; color: #fff; }
+.card-actions .mark-read[data-read="true"] { background: #2e8f4e; color: #fff; }
+.card-actions .mark-read[disabled] { opacity: 0.6; cursor: wait; }
+
+.maa-tag-menu {
+  position: fixed;
+  z-index: 2147483647;
+  min-width: 190px;
+  padding: 4px 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.22);
+  font-size: 0.9em;
+}
+.maa-tag-menu-label {
+  padding: 5px 12px 6px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 3px;
+  color: #555;
+  font-size: 0.85em;
+  font-weight: 600;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.maa-tag-menu-item {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: #232323;
+  cursor: pointer;
+}
+.maa-tag-menu-item:hover { background: #f2f2f2; }
+.maa-tag-menu-item.prefer { color: #2e8f4e; }
+.maa-tag-menu-item.block { color: #c33; }
+
+/* ---- Issue #3: suggested tags mined from browsed fics ---- */
+
+.suggest-row { margin: 0 0 18px 0; }
+.suggest-inner {
+  border: 1px dashed #b8a06a;
+  border-radius: 6px;
+  background: rgba(184, 160, 106, 0.07);
+  padding: 10px 12px;
+}
+.suggest-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.suggest-title { font-weight: 600; color: #7a6428; }
+.suggest-note { color: #7a6428; font-size: 0.85em; opacity: 0.9; }
+.suggest-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.suggest-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid #b8a06a;
+  border-radius: 12px;
+  background: #fff;
+  color: #6a5620;
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+.suggest-chip:hover { background: #b8a06a; color: #fff; }
+.suggest-chip .suggest-count {
+  font-size: 0.8em;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+.suggest-chip[data-decided="true"] { opacity: 0.45; cursor: default; }
+.suggest-empty { color: #7a6428; font-size: 0.9em; }

@@ -1412,6 +1412,116 @@ async function handleCacheChapterIds(message) {
   return { ok: true, count: chapterIds.length };
 }
 
+// ---------- Mark as read (issue #1) ----------
+//
+// "I've read this" is not a new category. myreading.js already derives a
+// "read" bucket from chapter progress: state === "reading" AND
+// maxChapterRead >= chaptersCurrent. So marking a fic read means completing
+// its progress, not inventing a `state: "read"`.
+//
+// That matters, because a new state value would be silently rewritten.
+// ensureHistoryState (db.js:335) only preserves "save_for_later" and
+// "reading"; anything else falls through to its legacy inference and comes
+// back as "save_for_later". A "read" state would therefore undo itself on the
+// next visit, and fresh_chapters (feed.js:142) tests `state !== "reading"`, so
+// it would also stop showing new chapters for a fic the reader had finished.
+// Setting progress is both simpler and the thing the rest of the code already
+// understands.
+//
+// `unread` reverses it by restoring the previously recorded progress, so the
+// button is a real toggle and not a one-way door. Stashing the old value on
+// the record is what makes that possible without inventing a second field
+// that could drift from maxChapterRead.
+
+// Marking read from a card for a fic with NO history record is the common
+// case, not an edge case: the feed recommends fics the reader has not opened
+// here, which is the whole point of it. So the record has to be created, and
+// it must be created from the fic's cached metadata rather than a page visit —
+// there is no page visit, and FETCH_FIC would be a network round-trip to AO3
+// for something the feed already has in ficCache.
+async function handleMarkRead(message) {
+  const ficId = message.ficId;
+  if (!ficId) return { ok: false, reason: "no_ficId" };
+  const now = message.timestamp || new Date().toISOString();
+  let existing = await dbGet("history", ficId);
+
+  if (!existing) {
+    const cached = await dbGet("ficCache", ficId);
+    const chapters = message.chapterTotal != null
+      ? message.chapterTotal
+      : parseChaptersSnapshot(cached && cached.chapters)?.total ?? null;
+    if (chapters == null) {
+      // Without a chapter count we cannot claim progress, and claiming 1 on a
+      // 40-chapter fic displays as "read" in My Reading while being a lie.
+      return { ok: false, reason: "unknown_chapter_count" };
+    }
+    existing = _baseHistoryRecord(ficId, null);
+    existing.title = message.title || (cached && cached.title) || null;
+    existing.author = message.author || (cached && cached.author) || null;
+    existing.firstOpened = now;
+    existing.chapterTotal = chapters;
+  }
+
+  const markRead = message.read !== false;
+
+  if (markRead) {
+    // A fic with no known chapter count is completed as far as we can tell:
+    // claim the total if we have it, otherwise the last chapter we know of.
+    // Claiming chapter 1 on a 40-chapter fic would be a lie that displays.
+    const total = message.chapterTotal != null
+      ? message.chapterTotal
+      : (existing.chapterTotal != null ? existing.chapterTotal : null);
+
+    if (existing.markedReadAt == null) {
+      // Stash the real progress so "mark unread" can put it back.
+      existing.progressBeforeMarkRead = existing.maxChapterRead || null;
+    }
+    existing.maxChapterRead = total != null ? total : Math.max(existing.maxChapterRead || 0, 1);
+    existing.chapterTotal = total;
+    existing.markedReadAt = now;
+    // Afic marked read is by definition in progress-or-done, not parked.
+    if (existing.state === "save_for_later") existing.state = "reading";
+  } else {
+    existing.maxChapterRead = existing.progressBeforeMarkRead != null
+      ? existing.progressBeforeMarkRead
+      : null;
+    existing.progressBeforeMarkRead = null;
+    existing.markedReadAt = null;
+  }
+
+  ensureHistoryState(existing);
+  await dbPut("history", existing);
+  return {
+    ok: true,
+    read: markRead,
+    state: existing.state,
+    maxChapterRead: existing.maxChapterRead,
+    chapterTotal: existing.chapterTotal
+  };
+}
+
+// Read-only peek at one history record. Exists so the in-page button can start
+// in the right state instead of claiming "I've read this" for a fic finished
+// long ago. Read-only on purpose: a page asking "what is the state" should not
+// be able to create a record, or every fic page view would add a history entry
+// for a fic the reader only glanced at — which would then hide it from the
+// feed forever.
+async function handleGetHistoryState(message) {
+  const ficId = message.ficId;
+  if (!ficId) return { ok: false, reason: "no_ficId" };
+  const existing = await dbGet("history", ficId);
+  if (!existing) return { ok: true, exists: false, state: null, markedReadAt: null };
+  ensureHistoryState(existing);
+  return {
+    ok: true,
+    exists: true,
+    state: existing.state,
+    markedReadAt: existing.markedReadAt || null,
+    maxChapterRead: existing.maxChapterRead || null,
+    chapterTotal: existing.chapterTotal || null
+  };
+}
+
 // ---------- Dispatcher ----------
 
 const handlers = {
@@ -1426,6 +1536,8 @@ const handlers = {
   HISTORY_TIME_TICK: handleHistoryTimeTick,
   HISTORY_SCROLL: handleHistoryScroll,
   SAVE_TOGGLE: handleSaveToggle,
+  MARK_READ: handleMarkRead,
+  GET_HISTORY_STATE: handleGetHistoryState,
   HISTORY_DELETE: handleHistoryDelete,
   CACHE_CHAPTER_IDS: handleCacheChapterIds,
   FETCH_CHAPTER_IDS: handleFetchChapterIds,

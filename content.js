@@ -544,6 +544,20 @@
           border-color: #2e8f4e;
           color: #fff;
         }
+        .maa-save-bar .maa-read-btn[data-read="true"] {
+          background: #2e8f4e;
+          border-color: #2e8f4e;
+          color: #fff;
+          min-width: 150px;
+        }
+        .maa-save-bar .maa-read-btn[data-read="true"]:hover {
+          background: #fff;
+          color: #2e8f4e;
+        }
+        .maa-save-bar .maa-read-btn[disabled] {
+          opacity: 0.6;
+          cursor: wait;
+        }
         .maa-toast {
           position: fixed;
           bottom: 24px;
@@ -578,6 +592,20 @@
     brand.textContent = "My AO3 Algorithm";
     bar.appendChild(brand);
 
+    // Two buttons: "I've read this" (issue #1) and the save toggle. The read
+    // button goes first because on a finished fic it is the one the reader
+    // actually wants, and the save button on a completed work is a no-op.
+    //
+    // Marking read from the page matters as much as from the feed: it is the
+    // moment the reader knows, and asking them to remember to click a card in
+    // the feed later is how a "mark as read" feature goes unused.
+    const readBtn = document.createElement("button");
+    readBtn.className = "maa-save-btn maa-read-btn";
+    readBtn.type = "button";
+    readBtn.textContent = "I've read this";
+    readBtn.setAttribute("data-read", "false");
+    bar.appendChild(readBtn);
+
     const btn = document.createElement("button");
     btn.className = "maa-save-btn";
     btn.type = "button";
@@ -586,6 +614,51 @@
     bar.appendChild(btn);
 
     byline.parentNode.insertBefore(bar, byline.nextSibling);
+
+    // Read-button state. null = unknown, true/false = marked or not.
+    let currentRead = null;
+
+    function renderRead(read) {
+      currentRead = read;
+      const on = read === true;
+      readBtn.textContent = on ? "Read ✓ — undo" : "I've read this";
+      readBtn.setAttribute("data-read", on ? "true" : "false");
+    }
+
+    readBtn.addEventListener("click", async () => {
+      if (readBtn.disabled) return;
+      readBtn.disabled = true;
+      const { total: chTotal } = parseChapterOrdinal(document, window.location.href);
+      try {
+        const reply = await browser.runtime.sendMessage({
+          type: "MARK_READ",
+          ficId: fic.ficId,
+          title: fic.title,
+          author: fic.author,
+          chapterTotal: chTotal != null ? chTotal : null,
+          // Toggle: clicking a marked-read button means "undo".
+          read: currentRead !== true,
+          timestamp: new Date().toISOString()
+        });
+        if (reply && reply.ok) {
+          renderRead(reply.read);
+          LOG(`mark read: ${reply.read ? "read" : "unread"} (${fic.ficId})`);
+        } else {
+          WARN("mark read failed:", reply);
+        }
+      } catch (e) {
+        ERR("mark read sendMessage failed:", e);
+      } finally {
+        readBtn.disabled = false;
+      }
+    });
+
+    // Ask the background whether this fic is already marked read, so the
+    // button does not claim "I've read this" for a fic the reader finished
+    // long ago. Silently wrong initial state is worse than no state.
+    browser.runtime.sendMessage({ type: "GET_HISTORY_STATE", ficId: fic.ficId })
+      .then(reply => { if (reply && reply.ok) renderRead(!!reply.markedReadAt); })
+      .catch(() => { /* leave the default; the toggle still works */ });
 
     // Track the last state the background told us about. null = no history
     // record exists yet (so clicking saves).
