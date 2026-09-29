@@ -946,6 +946,32 @@ async function buildContext() {
   };
 }
 
+// Rows whose entire purpose is to show fics the user has already read.
+// `fresh_chapters` surfaces new chapters of works in progress, so filtering
+// read fics out of it would delete the row. This is why the exemption lives
+// here, by name, rather than as a side effect inside that row's own
+// buildResult: a global "exclude read" boolean would have to either break
+// fresh_chapters or leave the other six broken, and there is no single value
+// of that boolean that is right for both.
+const READ_EXEMPT_ROW_TYPES = new Set(["fresh_chapters"]);
+
+// Remove already-read fics from a row's scored items.
+//
+// This is the whole fix, in one place, on purpose. The alternative is a
+// filter inside each of the seven buildResult bodies: seven places to get
+// right, and a row added later ships broken by default. Filtering at the one
+// seam every row passes through means new rows are correct for free.
+//
+// `your_authors` is absent from the exemption list because it already does
+// this itself (it filters ctx.allFics by historyFicIds, not scoredItems), so
+// the two filters do not compose into anything harmful but the early return
+// below keeps the common case cheap.
+function excludeReadItems(scoredItems, ctx, rowType) {
+  if (READ_EXEMPT_ROW_TYPES.has(rowType)) return scoredItems;
+  if (!ctx || !ctx.historyFicIds || ctx.historyFicIds.size === 0) return scoredItems;
+  return scoredItems.filter(it => !ctx.historyFicIds.has(it.fic.ficId));
+}
+
 async function renderAllRows() {
   const container = $("rows-container");
   container.innerHTML = "";
@@ -998,7 +1024,13 @@ async function renderAllRows() {
       scoreCache[def.rowType] = scoreAllWithData(def.rowType, scoringData);
     }
     const scored = scoreCache[def.rowType].results;
-    const result = def.buildResult(scored, ctx);
+    // Drop fics the user has already read before the row sees them. Reading a
+    // fic is the strongest positive signal a reader can give, so the scoring
+    // layer ranks read fics at the very top -- correctly, since that is what
+    // the score means. But "you liked this" is not a recommendation, and
+    // showing it back is the bug: five of the seven default rows were
+    // rendering read fics they had never filtered.
+    const result = def.buildResult(excludeReadItems(scored, ctx, def.rowType), ctx);
     rowRuns[id] = result;
     const section = buildRowSection(def, result, ctx);
     container.appendChild(section);
