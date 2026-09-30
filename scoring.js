@@ -16,9 +16,17 @@
 //   - Behavioral signals are stubbed (always 0). Real implementation is a
 //     later phase but the breakdown slot is present so the UI shape is stable.
 
+// NOTE: these are HALFWIDTHS. _scoreJitter returns
+// (Math.random() * 2 - 1) * range, so the spread is 2 * the number here.
+//
+// discover_new was 4, which is an 8-point spread on a row whose entire signal
+// is an anchor-tag match worth a few points. Noise outvoted the anchor, so the
+// row meant to surface fics "in unfamiliar territory" was ordered by jitter.
+// 1.5 matches similar_to_tastes and DEFAULT_JITTER: enough that repeat runs
+// differ, little enough that the anchor decides.
 const ROW_TYPE_JITTER = {
   similar_to_tastes: 1.5,
-  discover_new: 4,
+  discover_new: 1.5,
   popular: 1,
   hidden_gems: 1,
   your_authors: 0,
