@@ -361,13 +361,29 @@ test("seeds come from read history, capped, and are opaque to kindred", async ()
 // to be right: the banner must be assigned to innerHTML, and it must be
 // assigned BEFORE anything else writes to it.
 
-test("renderAllRows puts the banner into innerHTML", () => {
-  // The assignment exists...
-  assert.match(
-    feedSrc,
-    /container\.innerHTML = source\.bannerHtml/,
-    "renderAllRows never assigns the banner to the container — the note exists " +
-      "in resolveSource's return value and never reaches the page"
+test("renderAllRows puts the banner into innerHTML on BOTH paths", () => {
+  // COUNTED, not matched. renderAllRows writes the banner twice: once on the
+  // visibleRows.length === 0 early return, once on the main path. An existence
+  // check passes while EITHER is present, so dropping the main one — the path
+  // that runs whenever the reader has any visible rows, i.e. almost always —
+  // leaves the banner silently missing and every test green. That mutation was
+  // run; it survived; this is the test that kills it.
+  const body = feedSrc.slice(feedSrc.indexOf("async function renderAllRows("));
+  const all = [...body.matchAll(/container\.innerHTML = source\.bannerHtml/g)];
+  assert.equal(
+    all.length,
+    2,
+    `expected 2 banner assignments (the empty-rows early return and the main ` +
+      `path), found ${all.length}. A count of 1 means one path renders no ` +
+      `banner, and the missing one is the one no test could see.`
+  );
+
+  // And specifically: the LAST assignment is the main path, so it must exist.
+  const last = body.lastIndexOf("container.innerHTML = source.bannerHtml");
+  assert.ok(
+    last > body.indexOf('$("no-rows-state").hidden = true;'),
+    "the main-path banner assignment is gone — the banner is lost on every " +
+      "feed that has visible rows, which is the normal case"
   );
 });
 
