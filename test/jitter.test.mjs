@@ -129,6 +129,98 @@ test("jitter is symmetric, so the extremes are equally likely", () => {
   assert.equal(neg, round1((0.2 * 2 - 1) * r), "and so does the negative one");
 });
 
+// THE drift test. Everything above exercises a VERBATIM COPY of the constants,
+// which is the only way to test a browser script that cannot be imported — and
+// it means a change to scoring.js alone passes all of them. Proven by mutation:
+// setting discover_new back to 4 in scoring.js left this file fully green.
+//
+// So the real table is parsed out of scoring.js and compared to the copy, in
+// both directions, and the spread is re-asserted from the real source rather
+// than the copy. The copy becomes a mirror instead of a snapshot.
+test("the copy in this file still matches ROW_TYPE_JITTER in scoring.js", () => {
+  const src = readFileSync(join(root, "scoring.js"), "utf8");
+  const table = src.match(/const ROW_TYPE_JITTER = \{([\s\S]*?)\n\};/);
+  assert.ok(table, "ROW_TYPE_JITTER not found in scoring.js — a rename would do this");
+  const real = Object.fromEntries(
+    [...table[1].matchAll(/(\w+):\s*([\d.]+)/g)].map(([, n, v]) => [n, Number(v)])
+  );
+
+  // Both directions. One direction alone lets a row be added or dropped.
+  const missing = Object.keys(ROW_TYPE_JITTER).filter((k) => !(k in real));
+  const extra = Object.keys(real).filter((k) => !(k in ROW_TYPE_JITTER));
+  const changed = Object.keys(ROW_TYPE_JITTER)
+    .filter((k) => k in real && real[k] !== ROW_TYPE_JITTER[k])
+    .map((k) => `${k}: copy ${ROW_TYPE_JITTER[k]} vs real ${real[k]}`);
+
+  assert.deepEqual(missing, [], "rows in the copy but not in scoring.js");
+  assert.deepEqual(extra, [], "rows in scoring.js but not in the copy");
+  assert.deepEqual(changed, [], "halfwidths that differ");
+
+  // Re-read the real source for the claim this file exists for, so a
+  // regression fails here even if the copy above is updated to match it.
+  assert.equal(
+    real.discover_new * 2,
+    3,
+    `discover_new's real halfwidth is ${real.discover_new}, an ${
+      2 * real.discover_new
+    }-point spread on a row whose signal is a single tag match`
+  );
+  assert.equal(
+    real.completed_long_reads * 2,
+    4,
+    "completed_long_reads keeps its deliberate +/-2; it scores on the full taste signal"
+  );
+});
+
+// The same drift problem one level down: _scoreJitter's FORMULA is copied too,
+// so changing the arithmetic in scoring.js left this file green. Proven —
+// replacing (Math.random() * 2 - 1) * range with Math.random() * 2 * range
+// (one-sided and twice as wide) passed every test here.
+//
+// The formula is compared as source text, and the shape is pinned, because the
+// point is not that two implementations agree — it is that there is only one.
+test("the copied _scoreJitter still matches scoring.js's", () => {
+  const src = readFileSync(join(root, "scoring.js"), "utf8");
+  const real = src.match(/function _scoreJitter\(rowType\)[\s\S]*?\n\}/);
+  assert.ok(real, "_scoreJitter not found in scoring.js");
+
+  const defaults = src.match(/const DEFAULT_JITTER = ([\d.]+)/);
+  assert.ok(defaults, "DEFAULT_JITTER not found");
+  assert.equal(Number(defaults[1]), DEFAULT_JITTER, "DEFAULT_JITTER differs from the copy");
+
+  // A zero range must short-circuit. Without it a jittered row multiplies by
+  // zero and every draw is 0 — which coincidentally matches this copy.
+  assert.ok(
+    /if \(range === 0\) return \{ range, score: 0 \};/.test(real[0]),
+    "scoring.js no longer short-circuits a zero range"
+  );
+
+  // The multiplier, matched loosely on purpose: the point is to catch a change
+  // in SHAPE, not to re-implement the expression. `_round1((Math.random() * 2
+  // - 1) * range)` contains "2 - 1" inside the parens; a one-sided
+  // "Math.random() * 2 * range" must not.
+  const mult = real[0].match(/\*\s*(\d+)\s*-\s*(\d+)\s*\)/);
+  assert.ok(
+    mult,
+    "no (x * a - b) multiplier found in _scoreJitter — the formula changed " +
+      "shape, so this file's copy is no longer a mirror of it"
+  );
+  assert.equal(mult[1], "2", "the multiplier is no longer * 2");
+  assert.equal(mult[2], "1", "the offset is no longer - 1");
+
+  // Applied once, to the whole expression.
+  assert.ok(
+    /\*\s*range\s*\)/.test(real[0]),
+    "the range is no longer applied as a halfwidth in scoring.js"
+  );
+  // One-sided jitter specifically: with no subtraction every draw is positive,
+  // so a jittered row is quietly rewarded for being jittered.
+  assert.ok(
+    !/Math\.random\(\)\s*\*\s*2\s*\*\s*range/.test(real[0]),
+    "jitter is one-sided — every draw is positive"
+  );
+});
+
 test("a row with no jitter returns exactly 0, not a small random number", () => {
   const { jitter } = loadJitter();
   for (let i = 0; i < 50; i++) {
