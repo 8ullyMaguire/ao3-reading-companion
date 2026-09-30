@@ -1487,6 +1487,150 @@ function wireSettingsSection() {
     saveSettings({ behavioralSignalsThreshold: parseInt(e.target.value, 10) }));
 }
 
+// ---------- kindred section ----------
+//
+// The permission is requested HERE, from the click handler, and never declared
+// in the manifest. Two reasons, and the second is the one that is easy to get
+// wrong:
+//
+//  1. Chrome requires chrome.permissions.request() to originate from a user
+//     gesture. Calling it from a background timer or an init routine is
+//     rejected, so the toggle is the only place it can work.
+//  2. A host_permissions entry would be requested at install, from every
+//     reader, for a host they have not chosen — for a feature that is off by
+//     default. The extension's own description promises "all data stays on your
+//     computer", and asking for network access to a third party at install
+//     would contradict it before the reader has done anything.
+//
+// If the reader denies, the checkbox goes back and says why. A toggle that
+// silently does nothing is worse than no toggle: the reader believes they turned
+// something on, and the feed keeps quietly using the old path.
+
+function kindredOriginPattern() {
+  const url = ($("kindred-base-url") && $("kindred-base-url").value.trim()) || "";
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return `${u.protocol}//${u.host}/*`;
+  } catch {
+    return null;
+  }
+}
+
+function setKindredHint(el, text) {
+  if (!el) return;
+  if (text) {
+    el.textContent = text;
+    el.hidden = false;
+  } else {
+    el.textContent = "";
+    el.hidden = true;
+  }
+}
+
+async function wireKindredSection() {
+  const cb = $("kindred-enabled");
+  const urlInput = $("kindred-base-url");
+  const permHint = $("kindred-permission-hint");
+  const urlHint = $("kindred-url-hint");
+
+  // Reflect what is stored. A missing record means the defaults, and the
+  // default is off.
+  try {
+    const s = (await dbGet("settings", "main")) || {};
+    cb.checked = !!s.kindredEnabled;
+    if (s.kindredBaseUrl) urlInput.value = s.kindredBaseUrl;
+  } catch {
+    // Leave the controls at their HTML defaults rather than guessing.
+  }
+
+  cb.addEventListener("change", async () => {
+    if (!cb.checked) {
+      await saveSettings({ kindredEnabled: false });
+      setKindredHint(permHint, "");
+      toast("kindred off. Using this extension's own ranking.");
+      return;
+    }
+
+    const origin = kindredOriginPattern();
+    if (!origin) {
+      cb.checked = false;
+      setKindredHint(
+        urlHint,
+        "That address is not a valid http(s) URL, so there is nothing to grant " +
+          "permission for. Fix the address first, then turn this on."
+      );
+      return;
+    }
+
+    // From here on it must be a user gesture, which it is: we are inside the
+    // change handler the reader triggered.
+    try {
+      const granted = await chrome.permissions.request({ origins: [origin] });
+      if (!granted) {
+        // Revert. The reader said no, so the state must not say yes.
+        cb.checked = false;
+        setKindredHint(
+          permHint,
+          `Permission to reach ${origin} was declined, so kindred stays off. ` +
+            `Turn it on again to retry, or allow the site in your browser's ` +
+            `extension settings.`
+        );
+        return;
+      }
+    } catch (e) {
+      cb.checked = false;
+      setKindredHint(permHint, `Could not request permission: ${e.message}`);
+      return;
+    }
+
+    setKindredHint(permHint, `Permission granted for ${origin}.`);
+    await saveSettings({
+      kindredEnabled: true,
+      kindredBaseUrl: urlInput.value.trim() || undefined
+    });
+    toast("kindred on. If it is not running, the feed will say so.");
+  });
+
+  // Validated on blur, not per keystroke: a half-typed URL is not an error, and
+  // complaining about every intermediate state is how a form gets ignored.
+  urlInput.addEventListener("blur", async () => {
+    const raw = urlInput.value.trim();
+    if (!raw) {
+      setKindredHint(urlHint, "Using http://127.0.0.1:8010 — the default.");
+      await saveSettings({ kindredBaseUrl: undefined });
+      return;
+    }
+    const origin = kindredOriginPattern();
+    if (!origin) {
+      setKindredHint(urlHint, "Not a valid http(s) address. The previous value is kept.");
+      return;
+    }
+    setKindredHint(urlHint, "");
+    await saveSettings({ kindredBaseUrl: raw });
+    // If kindred is already on and the address changed, the new origin needs
+    // its own permission — Chrome grants per origin, not per extension.
+    if (cb.checked) {
+      try {
+        const has = await chrome.permissions.contains({ origins: [origin] });
+        if (!has) {
+          const granted = await chrome.permissions.request({ origins: [origin] });
+          setKindredHint(
+            permHint,
+            granted
+              ? `Permission granted for ${origin}.`
+              : `No permission for ${origin}, so kindred will fall back to local ` +
+                `ranking and say so in the feed header.`
+          );
+        }
+      } catch (e) {
+        setKindredHint(permHint, `Could not check permission: ${e.message}`);
+      }
+    }
+  });
+}
+
 // ---------- Backup & data section ----------
 
 const BACKUP_SCHEMA_VERSION = 1;
@@ -1785,6 +1929,7 @@ function setupKeyboardShortcuts() {
     wireDislikeHistorySection();
     wireCacheSection();
     wireSettingsSection();
+    wireKindredSection();
     wireBackupSection();
 
     await loadAllState();

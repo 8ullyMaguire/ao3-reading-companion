@@ -34,6 +34,7 @@
       <button class="side-link" data-section="dislike-history"><span class="side-icon">⚑</span>Dislike history</button>
       <button class="side-link" data-section="cache"><span class="side-icon">⛁</span>Cache</button>
       <button class="side-link" data-section="settings"><span class="side-icon">⚙</span>Settings</button>
+      <button class="side-link" data-section="kindred"><span class="side-icon">⬡</span>kindred</button>
       <button class="side-link" data-section="backup"><span class="side-icon">⇅</span>Backup &amp; data</button>
     </aside>
 
@@ -386,6 +387,50 @@
       </div>
 
       <!-- ===== Backup & data ===== -->
+      <!-- ===== kindred ===== -->
+      <!-- The permission is requested when the toggle is switched ON, never
+           declared in the manifest. Chrome requires
+           chrome.permissions.request() to come from a user gesture, and asking
+           at install for network access to a host the reader has not chosen
+           yet is exactly the wrong default for a feature that is off by
+           default. See SPEC 4.5. -->
+      <div class="section" data-section="kindred" hidden>
+        <h2 class="section-title">kindred</h2>
+        <p class="section-blurb">
+          Use a <strong>kindred</strong> instance for recommendations instead of this
+          extension's own scoring. kindred ranks against a whole corpus with a tag
+          graph; this extension scores whatever it has seen you read. It is the
+          better ranker, and it is also a second program to install, run and
+          trust &mdash; which is why it stays off until you turn it on.
+        </p>
+
+        <h3 class="section-subtitle">Use kindred for recommendations</h3>
+        <label class="check-row">
+          <input type="checkbox" id="kindred-enabled">
+          <span>Ask kindred first; fall back to local ranking if it is not answering</span>
+        </label>
+        <p class="field-hint" id="kindred-permission-hint" hidden></p>
+
+        <h3 class="section-subtitle">kindred address</h3>
+        <p class="section-blurb">
+          Leave this alone if you run kindred on this computer. Pointing it
+          elsewhere sends the seeds of works you have opened to that host, which
+          is the most revealing thing this extension could send &mdash; so it should
+          be a host you picked on purpose.
+        </p>
+        <input type="url" id="kindred-base-url" placeholder="http://127.0.0.1:8010"
+               spellcheck="false" autocomplete="off">
+        <p class="field-hint" id="kindred-url-hint"></p>
+
+        <h3 class="section-subtitle">What is sent, and what is not</h3>
+        <p class="section-blurb">
+          Only the ids of works you have opened, as seeds for kindred's own walk.
+          Never: your reading history as a list, fic titles, author names, or
+          anything that identifies you. Taste changes &mdash; a tag or fandom you
+          raise or lower &mdash; go as bare numbers, with nothing tying them to you.
+        </p>
+      </div>
+
       <div class="section" data-section="backup" hidden>
         <h2 class="section-title">Backup &amp; data</h2>
         <p class="section-blurb">Export your full extension state to a file, restore from a previous backup, or wipe everything and start over.</p>
@@ -439,6 +484,7 @@
 
   <script src="db.js"></script>
   <script src="dislike.js"></script>
+  <script src="kindred.js"></script>
   <script src="preferences.js"></script>
 </body>
 </html>
