@@ -6,7 +6,10 @@
   "type": "commonjs",
   "scripts": {
     "test": "node --test 'test/*.test.mjs'",
-    "check": "node tools/check-read-filter.mjs",
+    "check": "node tools/check-read-filter.mjs && node tools/check-jitter-spread.mjs && node tools/check-license-asymmetry.mjs && node tools/check-taste-queue-privacy.mjs",
+    "check:jitter": "node tools/check-jitter-spread.mjs",
+    "check:license": "node tools/check-license-asymmetry.mjs",
+    "check:privacy": "node tools/check-taste-queue-privacy.mjs",
     "verify": "VERIFY=1 node tools/check-read-filter.mjs"
   },
   "license": "MIT"
