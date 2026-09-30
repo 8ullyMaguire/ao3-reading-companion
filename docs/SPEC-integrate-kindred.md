@@ -1,6 +1,7 @@
 # SPEC — ao3-reading-companion: fix the recommendations, then feed kindred
 
-Status: proposed, 2026-09-29
+Status: **implemented 2026-09-30** (§1, §4). §3 not built — see §7.
+Originally proposed 2026-09-29.
 Repo: `~/code/python/ao3/ao3-reading-companion` (clone of `8ullyMaguire/ao3-reading-companion`)
 Upstream: MV3 browser extension, plain unminified JS, no build step, no tests, no package.json
 
@@ -267,12 +268,46 @@ Batched on a timer, never per keystroke. Never: fic URLs being read, titles,
 author names of works being read, or anything identifying the *reader*. The
 server learns what the population likes, never who.
 
-### 4.5 Client changes, kept small
+### 4.5 Client changes — as built
 
-Three files. `kindred.js` is new and owns the base URL, a 30-second-timeout
-`fetchEntities()`, and a batched retrying queue. `feed.js` gains a source
-switch at the top of `renderAllRows` — kindred first, local on any failure.
-`manifest.json` gains a `host_permissions` entry for the kindred origin.
+`kindred.js` is new: the base URL, `fetchRecommendations()` with a 30s timeout,
+and a batched retrying `TasteQueue`. It touches no DOM, no IndexedDB and no
+`chrome.*`, which is what lets the whole fallback table be tested in plain node.
+`feed.js` gains `resolveSource()` ahead of `renderAllRows` — kindred first,
+local on any failure. `preferences.html` / `preferences.js` gain the section and
+the toggle.
+
+**`manifest.json` does NOT gain a `host_permissions` entry, and that is the
+decision rather than an omission.** Two reasons. Chrome requires
+`chrome.permissions.request()` to come from a user gesture, so the toggle is the
+only place it can work. And a static entry is requested at install, from every
+reader, for a host they have not chosen — while this extension's own description
+promises *"All data stays on your computer."* The permission is requested when
+the reader switches the toggle on, and a denial puts the checkbox back and says
+why.
+
+### 4.5a One correction to this spec, and the bug it would have shipped
+
+§4.1 says the fallback is recorded "in the feed header". The first implementation
+put `container.innerHTML = source.bannerHtml` on the line *after*
+`container.innerHTML = ""` — so the note existed in the code, was computed
+correctly, and was discarded before anything could read it. A silent
+degradation, which is the exact failure this section exists to prevent.
+
+There is a second instance of the same shape, and it is the one worth
+remembering: `readKindredSettings` read `chrome.storage.local` while every other
+setting in the extension is written through `dbPut("settings", …)` into
+IndexedDB. So the read found nothing, `kindredEnabled` was always falsy, and
+`resolveSource` took its `"disabled"` branch — a perfectly correct no-op. The
+feature would have shipped with a working toggle, a working client, a green
+suite, and no recommendations ever.
+
+**A feature that is off by default fails silently when its on-switch does not
+connect.** Nothing throws, and the absence of recommendations is
+indistinguishable from a reader who has not opted in. The test that now catches
+it writes a settings record the way `preferences.js` does and asserts the
+network is reached — because the per-seam tests all pass while the pieces are
+disconnected.
 
 **The permission is requested on toggle, not at install.** Chrome requires
 `permissions.request()` to be user-initiated, so the toggle in `preferences.html`
@@ -288,14 +323,33 @@ with no matches is not an error, and treating it as one would make a
 cold-start kindred silently drop the user to local ranking while looking like
 a bug. Empty ⇒ render local, and say so.
 
-### 4.7 Licensing — the blocking question, deliberately left open
+### 4.7 Licensing — RESOLVED 2026-09-30. Not blocking.
 
-`LICENSE` is 1,070 bytes and must be read before any of §4 ships. If it is
-copyleft with a share-alike term, then **feeding kindred's database from it is
-fine** (facts and weights are not the extension's creative expression) but
-**copying extension code into kindred is not**. That constraint is why §4.5
-specifies a wire protocol rather than shared modules, and it is why §4.5 ships
-in the extension, never the reverse.
+Read before writing any of §4, as this section required.
+
+| Repo | Licence |
+|---|---|
+| `ao3-reading-companion` | **MIT** — 1,070 bytes, `Copyright (c) 2026 DisastrousClass` |
+| `kindred` | **AGPL-3.0** — 34,523 bytes |
+
+The answer is not "copyleft with a share-alike term, so be careful". The two
+licences are on **opposite sides** of the permissive/copyleft line, and the
+asymmetry is what makes §4.5's wire protocol the only correct design:
+
+- **MIT extension calling an AGPL service over HTTP: fine.** Separate works,
+  communicating at arm's length. No code is copied, so no obligation transfers.
+- **kindred code inside the extension: never.** AGPL would infect an MIT work
+  that is a public clone, and the network clause reaches the service worker too.
+- **Feeding kindred's database from the extension: fine.** Facts and weights are
+  not the extension's creative expression.
+
+**Enforced, not merely documented:** `tools/check-license-asymmetry.mjs` fails
+if any of 21 kindred implementation symbols (`PMI`, `Neighbourhood`,
+`persistCSR`, `OwnerKey`, `arena_user_blocked_tags`, …) appears in the
+extension's JS, with comments stripped so prose about the boundary is fine and
+an actual port is not. The wire names — `seeds`, `n`, `items`, `evidence` — are
+deliberately NOT in the list, because those are the interface and using them is
+the point.
 
 ### 4.8 What is deliberately not built
 
@@ -329,3 +383,49 @@ it harder to review, not easier.
    self-hosted. Does the extension point at `kindred.polarisocial.xyz`, or at a
    user-run local kindred on `127.0.0.1:8010`? Local-first is the default,
    public is opt-in, because §4.1 assumes the server is the user's to trust.
+
+
+## 7. What was and was not built
+
+Built and verified 2026-09-30:
+
+| § | Item | State |
+|---|---|---|
+| §1 | read-history filter (`excludeReadItems`) | done earlier, `8753a64` |
+| §1.3 | `discover_new` jitter | **done** — was a halfwidth of 4, i.e. an 8-point spread on a row whose signal is one tag match |
+| §4.1 | kindred as the source, local as fallback | done |
+| §4.4 | licence question | **resolved**, §4.7 above |
+| §4.5 | `kindred.js`, the feed switch, the toggle | done |
+| §4.6 | total fallback | done — 6 failure modes, each with its own reason and a banner |
+| §4.4 | taste queue | done — aggregate deltas only, allow-list enforced by a check |
+| §3 | the entity problem / recommendation surface | **not built** |
+
+§3 is not built and is not blocked on anything here. It asks for a
+recommendation surface in the extension's own UI for non-work entities —
+fandoms, authors, tags — which is a UI project rather than an integration one.
+The kindred API already supports `kind=` across those entity kinds
+(`buildKindredSeeds` emits opaque `kindred_seed:*` strings and does not parse
+them, so a new entity kind needs no change there), so the remaining work is
+presentation.
+
+## 8. Verification that actually ran
+
+From a fresh clone of the committed tree, not the working directory:
+
+- `node --test 'test/*.test.mjs'` — **116 tests, 0 failing** (41 before this work)
+- `npm run check` — 4 checks, all PASS
+- Every check mutation-proven to fail: jitter 5, kindred client 6, fallback 7,
+  licence 2, privacy 2, allow-list disagreement 1
+
+Mutations that survived and the coverage written in response, because the
+survivals are the interesting part:
+
+| Mutation | Why it survived | What caught it |
+|---|---|---|
+| `discover_new` back to 4 | the test held a verbatim copy of the constants | a drift test parsing the real source |
+| jitter formula one-sided and 2x wide | the formula was copied too | a shape test on `_scoreJitter`'s source |
+| `clearTimeout` removed | node's runner exits regardless of pending timers | a subprocess test asserting the process exits |
+| a `fic:` field on the taste payload | the check matched URL literals, not field names | a structural check on the payload's keys |
+| banner computed then overwritten | tests inspected the return value, not the render | a source assertion on the `innerHTML` ordering |
+| main-path banner dropped | an existence check passes while the *other* branch has it | a count of the assignments |
+| `kindred: null` falling through to the global | `falsy-or` was indistinguishable when a global exists | an explicit three-state test |

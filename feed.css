@@ -726,6 +726,25 @@ body.tag-active .card.tag-match:hover {
 /* ---- Empty states ---- */
 
 /* Page-level empty state (used for "nothing at all to show"). */
+/* The recommendation-source note.
+   Not an error banner. It appears when the feed fell back to local ranking, or
+   when kindred ranked with fewer signals than usual, and it is styled to read
+   as an explanation rather than a failure — a reader who sees a red box stops
+   reading the feed, and the whole point is that they are told why it looks
+   flat. `role="status"` in the markup means it is announced without stealing
+   focus. */
+.feed-source-note {
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--border, #d8d4cd);
+  border-left: 3px solid var(--accent-muted, #9a9186);
+  border-radius: 4px;
+  background: var(--surface-alt, #f7f5f2);
+  color: var(--text-muted, #5c574f);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
 .empty-state {
   background: var(--panel);
   border: 1px dashed var(--border);
