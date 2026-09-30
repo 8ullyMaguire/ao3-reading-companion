@@ -977,6 +977,138 @@ function excludeReadItems(scoredItems, ctx, rowType) {
   return scoredItems.filter(it => !ctx.historyFicIds.has(it.fic.ficId));
 }
 
+// ---------- Recommendation source (SPEC §4.1) ----------
+//
+// One source, chosen per feed build, recorded in the feed header. There is no
+// user-facing "which source" toggle: a second source is a second thing to be
+// wrong, and a reader who wants to know why their feed looks flat should be
+// able to read it off the page rather than go looking for a setting.
+//
+// The local path below is otherwise UNTOUCHED — that is what makes it a
+// fallback rather than a rewrite. scoreAllWithData + ROW_DEFINITIONS +
+// excludeReadItems run exactly as they did.
+
+const KINDRED_ROW_ID = "kindred";
+
+// How many items to ask kindred for. More than one row's worth, because the
+// read-history filter runs afterwards and takes its cut.
+const KINDRED_N = 40;
+
+// Where the reader's settings live. Read through a helper rather than touching
+// chrome.storage directly, so this function stays testable in plain node.
+async function readKindredSettings() {
+  try {
+    if (typeof chrome === "undefined" || !chrome.storage) return {};
+    const got = await chrome.storage.local.get([
+      "kindredEnabled",
+      "kindredBaseUrl"
+    ]);
+    return got || {};
+  } catch {
+    // Storage being unavailable is not a reason to fail a feed build. It means
+    // the defaults apply, and the default is off.
+    return {};
+  }
+}
+
+// Build the seed list from what the reader has actually read.
+//
+// Only works the reader has opened become seeds — a seed is a starting point
+// for kindred's graph walk, and a fic they merely browsed past is noise. This
+// is the ONE place reading history touches the kindred request, and it goes
+// out as an opaque seed id, never as a list of what they read.
+function buildKindredSeeds(ctx) {
+  const ids = (ctx && ctx.historyFicIds) || new Set();
+  return [...ids].slice(0, KINDRED_N).map((id) => `kindred_seed:work:${id}`);
+}
+
+// Resolve which source this feed build will use.
+//
+// Returns {items, degraded, note, bannerHtml, reason} and NEVER throws, for the
+// same reason kindred.js does not: a throw here would take the whole feed down,
+// which is strictly worse than a local ranking. The local path is the floor.
+async function resolveSource(ctx, opts) {
+  const options = opts || {};
+  const settings = options.settings || (await readKindredSettings());
+  const fallback = {
+    items: null,
+    degraded: [],
+    reason: null,
+    note: null,
+    bannerHtml: ""
+  };
+
+  if (!settings.kindredEnabled) {
+    // Off is the shipped default, and it is the default for a reason: a
+    // recommender that can see a reading history is not something to point at
+    // a host you do not control without saying so.
+    return { ...fallback, reason: "disabled" };
+  }
+
+  // `kindred: undefined` means "not injected, fall back to the global" — which
+  // is what the extension wants, since kindred.js sets globalThis.Kindred.
+  // `kindred: null` means "deliberately absent", and must NOT fall through to
+  // the global: a caller that says there is no client is reporting that the
+  // script failed to load, and silently picking up a global instead would
+  // render the wrong branch and hide the real fault.
+  const K =
+    options.kindred === null
+      ? null
+      : options.kindred || (typeof Kindred !== "undefined" ? Kindred : null);
+  if (!K) {
+    // kindred.js did not load. Degrade, and say so, rather than rendering an
+    // empty feed with no explanation.
+    return {
+      ...fallback,
+      reason: "client-missing",
+      note: "kindred support did not load — showing local ranking.",
+      bannerHtml: sourceBanner("kindred support did not load — showing local ranking.")
+    };
+  }
+
+  const seeds = buildKindredSeeds(ctx);
+  if (seeds.length === 0) {
+    // Nothing read yet, so there is nothing to walk from. Not a failure of
+    // anything, and not worth a banner — a new reader seeing no banner is the
+    // correct state, not a silent problem.
+    return { ...fallback, reason: "no-seeds" };
+  }
+
+  const base = settings.kindredBaseUrl || K.DEFAULT_BASE_URL;
+  const res = await K.fetchRecommendations(base, seeds, KINDRED_N, options);
+
+  if (!res.ok) {
+    return {
+      ...fallback,
+      reason: res.reason,
+      note: res.note,
+      bannerHtml: sourceBanner(res.note)
+    };
+  }
+
+  return {
+    items: res.items.map(K.toFeedItem),
+    degraded: res.degraded,
+    reason: null,
+    note: null,
+    // A degraded signal is worth a line even though the call succeeded: it is
+    // the reason a healthy kindred's feed can still look flat.
+    bannerHtml: res.degraded.length
+      ? sourceBanner(
+          `kindred ranked using fewer signals than usual (${res.degraded.join(
+            ", "
+          )}).`
+        )
+      : ""
+  };
+}
+
+// The header line. A banner, not an error: it explains, it does not alarm.
+function sourceBanner(text) {
+  if (!text) return "";
+  return `<div class="feed-source-note" role="status">${escapeHtml(text)}</div>`;
+}
+
 async function renderAllRows() {
   const container = $("rows-container");
   container.innerHTML = "";
@@ -1013,15 +1145,36 @@ async function renderAllRows() {
 
   const ctx = await buildContext();
 
+  // ---------- Recommendation source ----------
+  //
+  // kindred first, local on any failure. No user-facing toggle for "which
+  // source": a second source is a second thing to be wrong, and the honest
+  // answer to "why is my feed flat?" is a line in the header, not a setting.
+  //
+  // Silent degradation is the failure this is written against. A reader whose
+  // feed quietly fell back to local ranking has no way to notice, and a flat
+  // feed looks like a broken recommender rather than an unreachable server. So
+  // every fallback path carries a reason into the header, and `unreachable`
+  // gets different text from `empty` — a cold instance has not learned anything
+  // yet and needs a different fix from a server that is not running.
+  const source = await resolveSource(ctx);
+
   // Score once per unique rowType.
   const scoreCache = {};
-  container.innerHTML = "";
 
   if (visibleRows.length === 0) {
     $("no-rows-state").hidden = false;
+    container.innerHTML = source.bannerHtml || "";
     return;
   }
   $("no-rows-state").hidden = true;
+
+  // The banner goes in FIRST and is never overwritten. It was previously set
+  // on the line after innerHTML = "", which meant it was discarded before it
+  // could be read — a note that exists in the code and never in the page is
+  // the silent-degradation failure this whole change exists to prevent, so the
+  // ordering is the fix rather than an afterthought.
+  container.innerHTML = source.bannerHtml || "";
 
   // Issue #1: the mined-tags row sits above the recommendation rows. Rendered
   // here rather than inside the row loop because it is not a row — it is one
