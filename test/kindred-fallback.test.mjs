@@ -347,6 +347,92 @@ test("seeds come from read history, capped, and are opaque to kindred", async ()
   assert.deepEqual([...buildKindredSeeds(null)], []);
 });
 
+// ---- the render path, which two mutations survived ----------------------
+//
+// M5 (the banner is computed and then overwritten by `innerHTML = ""`) and M7
+// (resolveSource throws instead of degrading) both left every test in this file
+// green. Neither is visible from here: these tests call resolveSource directly
+// and inspect what it RETURNS, so a note that is produced correctly and then
+// thrown away on the way to the page is indistinguishable from one that is
+// displayed. The first version of the banner was exactly that bug — the note
+// was set on the line after `innerHTML = ""` and discarded.
+//
+// So the render path is asserted on the SOURCE, because the source is what has
+// to be right: the banner must be assigned to innerHTML, and it must be
+// assigned BEFORE anything else writes to it.
+
+test("renderAllRows puts the banner into innerHTML", () => {
+  // The assignment exists...
+  assert.match(
+    feedSrc,
+    /container\.innerHTML = source\.bannerHtml/,
+    "renderAllRows never assigns the banner to the container — the note exists " +
+      "in resolveSource's return value and never reaches the page"
+  );
+});
+
+test("and no write to innerHTML between the setup and the banner can discard it", () => {
+  // Order is the whole bug. The banner must land BEFORE the rows are appended,
+  // because appendChild after a bare `innerHTML = ""` would work while a bare
+  // `innerHTML = ""` after the banner would wipe it.
+  //
+  // Scoped deliberately. renderAllRows has two other `innerHTML =` writes and
+  // the first version of this test rejected both, which was wrong about one of
+  // them: the empty-all collapse at the end clears the container on purpose
+  // when no row produced anything, and the banner is not wanted in that state
+  // anyway. The first write is the one that matters — it is the line the
+  // original bug sat on, clearing the container right where the banner was
+  // about to be written.
+  const body = feedSrc.slice(feedSrc.indexOf("async function renderAllRows("));
+  const bannerAt = body.indexOf("container.innerHTML = source.bannerHtml");
+  assert.ok(bannerAt !== -1, "no banner assignment at all");
+
+  // The setup clear must come before the banner, not after it.
+  const firstClear = body.indexOf('container.innerHTML = "";');
+  assert.ok(
+    firstClear < bannerAt,
+    `renderAllRows clears innerHTML at ${firstClear} but writes the banner at ` +
+      `${bannerAt} — the banner is discarded before it can be read. This is ` +
+      `the bug where a note exists in the code and never in the page.`
+  );
+
+  // And the ROW LOOP's append must come after the banner.
+  //
+  // Scoped to the loop rather than to the first appendChild, because the first
+  // one is the cache-load error path — which returns before the banner is ever
+  // written, so requiring it to come later is a test of the wrong thing. The
+  // row loop is the append that would actually follow the banner.
+  const rowLoop = body.indexOf("for (const { id } of visibleRows)");
+  assert.ok(rowLoop !== -1, "the row loop is gone from renderAllRows");
+  const loopAppend = body.indexOf("container.appendChild(", rowLoop);
+  assert.ok(
+    loopAppend > bannerAt,
+    `the row loop appends at ${loopAppend}, before the banner at ${bannerAt} — ` +
+      `the banner would be wiped by the row loop`
+  );
+});
+
+test("resolveSource has no throw, so a fault cannot take the feed down", () => {
+  // M7 added a throw after the fetch and every test here stayed green, because
+  // the tests supply stubs that always return a value. A real kindred that
+  // somehow returned nothing would throw, and the throw would escape
+  // renderAllRows — a total feed failure, which is strictly worse than a bad
+  // ranking. The no-throw promise is structural, so it is checked structurally.
+  const fn = feedSrc.slice(
+    feedSrc.indexOf("async function resolveSource("),
+    feedSrc.indexOf("function sourceBanner(")
+  );
+  assert.ok(fn.length > 100, "resolveSource not found in feed.js");
+  const code = fn
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
+    .join("\n");
+  assert.ok(
+    !/\bthrow\b/.test(code),
+    "resolveSource must never throw; the local path is the floor under the feed"
+  );
+});
+
 // ---- the banner itself -------------------------------------------------
 
 test("sourceBanner escapes its text", async () => {
