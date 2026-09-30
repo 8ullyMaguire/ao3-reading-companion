@@ -994,19 +994,27 @@ const KINDRED_ROW_ID = "kindred";
 // read-history filter runs afterwards and takes its cut.
 const KINDRED_N = 40;
 
-// Where the reader's settings live. Read through a helper rather than touching
-// chrome.storage directly, so this function stays testable in plain node.
+// Where the reader's settings live.
+//
+// IndexedDB, via the `settings` store keyed "main" — NOT chrome.storage.
+// preferences.js writes every other setting through dbPut("settings", ...), so
+// reading chrome.storage here would find nothing and the feature would be
+// permanently off no matter what the toggle said. The first version of this
+// used chrome.storage.local because it is the obvious place to reach for, and
+// nothing caught it: resolveSource's "disabled" branch is a perfectly correct
+// no-op, so the whole integration would have shipped inert.
+//
+// Failures here mean the defaults apply, and the default is off.
 async function readKindredSettings() {
   try {
-    if (typeof chrome === "undefined" || !chrome.storage) return {};
-    const got = await chrome.storage.local.get([
-      "kindredEnabled",
-      "kindredBaseUrl"
-    ]);
-    return got || {};
+    if (typeof dbGet !== "function") return {};
+    const s = await dbGet("settings", "main");
+    if (!s) return {};
+    return {
+      kindredEnabled: !!s.kindredEnabled,
+      kindredBaseUrl: s.kindredBaseUrl || undefined
+    };
   } catch {
-    // Storage being unavailable is not a reason to fail a feed build. It means
-    // the defaults apply, and the default is off.
     return {};
   }
 }
