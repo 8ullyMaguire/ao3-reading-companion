@@ -93,7 +93,14 @@ test('the note body is exactly the shape the handler reads (reading.rs:120)', as
 });
 
 test('a 204 has no body to parse and must not throw', async () => {
-  stubFetch({ status: 204, payload: null });
+  // The stub must behave like a real 204: `res.json()` on a bodyless response REJECTS.
+  // A stub that returns null instead makes "parse it anyway" unobservable, and the
+  // mutation that always calls res.json() survives (measured: it did).
+  calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 204, json: async () => { throw new SyntaxError('Unexpected end of JSON input'); } };
+  };
   const out = await client.deleteNote('n1');
   assert.equal(out, null);
 });
