@@ -13,14 +13,11 @@
 //   2. Non-safe methods carry `x-csrf-token`. The token is READ, SENT, FORGOTTEN — never
 //      stored, never logged.
 //
-// Deliberately NOT here, because the server does not have them yet (see README):
-//   * anything that explains a recommendation — /api/v1/discovery has no `explain` param
-//     and no SlotExplanation in its response (§48.3);
-//   * anything that reports an impression — `log_impression` exists in the server's
-//     ranking layer and no route calls it.
-// Absent, not stubbed: a plausible-looking reason or a locally invented impression is the
-// lie §33.3 forbids, and a discarded impression is worse than none because it looks like
-// data.
+// Why there is no impression-reporting function: the server records the slot it served
+// (routes/discovery.rs calls recommendation_slots::record_response for every item), so an
+// impression the extension invented would be a second, competing record of what was shown.
+// The plan's §47 blocker ("log_impression has no route") is answered by a better mechanism
+// on the server side, not by a route.
 
 const SESSION_COOKIE = 'lorehaven_session'; // lorehaven auth.rs:36
 const CSRF_COOKIE = 'lorehaven_csrf';       // lorehaven auth.rs:39
@@ -75,6 +72,10 @@ const ABSOLUTE = /^[a-z][a-z0-9+.-]*:/i;
  * would make assertConfiguredOrigin dead code, and a guard nothing can reach is a guard
  * that cannot fail a test.
  */
+// Every id a caller passes becomes ONE path segment, never a path. The server's own payload
+// carries the slot ids this client loops over, so an id containing "/" or ".." must not be
+// able to climb out of the route it belongs to — encodeURIComponent at each call site, and
+// the origin guard behind them as the second line of defence.
 function apiUrl(target) {
   if (typeof target !== 'string' || target === '') {
     throw new Error('api() needs a path or a URL');
@@ -108,11 +109,29 @@ async function api(path, { method = 'GET', body } = {}) {
 const getFeed = () => api('/api/v1/discovery');
 const getTasteVector = () => api('/api/v1/discovery/taste-profile/me');
 const getHistory = () => api('/api/v1/library/history');
-const clearHistory = () => api('/api/v1/library/history', { method: 'DELETE' });
+// reading.rs:56-58, verified: GET /library/history, POST /library/history/clear,
+// DELETE /library/history/{id}. (An earlier revision of this client had a DELETE on the
+// collection, which is not a route — the plan's table said collection-level DELETE and the
+// route table says otherwise. The route table wins.)
+const clearHistory = () => api('/api/v1/library/history/clear', { method: 'POST' });
+const deleteHistoryEntry = (id) => api(`/api/v1/library/history/${encodeURIComponent(id)}`, { method: 'DELETE' });
+/**
+ * §33.3 / M29: WHY a work was served, read from the RECORDED slot —
+ * GET /api/v1/discovery/slots/{slot_id}/explanation ->
+ * {slot_id, work_id, position, reasons[], taste_signal?, seeded_by?, recipe_stage?,
+ *  instance_curation?, blend_score, served_at}. The plan's §48.3 called this "no endpoint";
+ * it exists, and the discovery response already stamps each item with its slot_id, so the
+ * extension can show the reader real reasons rather than a stated absence.
+ */
+const explainSlot = (slotId) => api(`/api/v1/discovery/slots/${encodeURIComponent(slotId)}/explanation`);
 const getNotes = () => api('/api/v1/notes');
 // NoteRequest is {subject_type, subject_id, anchor?, body} (reading.rs:120) — NOT
 // {work_id, body}. subject_type is a free-form string the database does not constrain,
 // so 'work' is this client's convention and it lives here, once.
+// GET /api/v1/works/{id} — read_work (works.rs:115). The discovery feed carries only
+// work_id and slot_id (routes/discovery.rs:237), so the details a card renders come from
+// here, one request per work.
+const getWork = (workId) => api(`/api/v1/works/${encodeURIComponent(workId)}`);
 const addNote = (workId, text) =>
   api('/api/v1/notes', { method: 'PUT', body: { subject_type: 'work', subject_id: workId, body: text } });
 const deleteNote = (noteId) => api(`/api/v1/notes/${noteId}`, { method: 'DELETE' });
@@ -130,9 +149,12 @@ const apiSurface = {
   apiUrl,
   api,
   getFeed,
+  getWork,
+  explainSlot,
   getTasteVector,
   getHistory,
   clearHistory,
+  deleteHistoryEntry,
   getNotes,
   addNote,
   deleteNote,

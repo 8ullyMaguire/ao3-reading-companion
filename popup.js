@@ -16,6 +16,20 @@ function openInTab(htmlPath) {
   const feedBtn = document.getElementById("open-feed");
   const myReadingBtn = document.getElementById("open-myreading");
   const preferencesBtn = document.getElementById("open-preferences");
+  const instanceValue = document.getElementById("instance-value");
+
+  // The server, not the local cache, is where recommendations come from (§48) — so the
+  // popup's headline state is the instance, and the cache line is secondary.
+  let instance = "";
+  try { instance = (await getInstance()) || ""; } catch (e) { console.error(e); }
+  if (instanceValue) {
+    instanceValue.textContent = instance || "not configured";
+    instanceValue.classList.toggle("warn", !instance);
+  }
+  const lorehavenBtn = document.getElementById("open-lorehaven");
+  if (lorehavenBtn) {
+    lorehavenBtn.addEventListener("click", () => openInTab("lorehaven.html"));
+  }
 
   let completed = false;
   let cacheCount = 0;

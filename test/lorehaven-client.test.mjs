@@ -110,11 +110,20 @@ test('a failed request says which call failed, not just a status code', async ()
   await assert.rejects(() => client.getDnf(), /GET \/api\/v1\/me\/dnf -> 403/);
 });
 
-test('the two things the server cannot do yet are ABSENT, not stubbed (§48.3, §47)', () => {
+test('the reasons endpoint the plan called missing is used, and stays on the configured origin (§33.3)', async () => {
+  client.setBaseUrl('https://lh.example');
+  await client.explainSlot('slot-1');
+  assert.equal(calls[0].url, 'https://lh.example/api/v1/discovery/slots/slot-1/explanation');
+});
+
+test('a slot id that tries to climb the path is encoded, so it cannot leave the route or the origin (§48.5)', async () => {
+  client.setBaseUrl('https://lh.example');
+  await client.explainSlot('../../../evil');
+  assert.equal(calls[0].url, 'https://lh.example/api/v1/discovery/slots/..%2F..%2F..%2Fevil/explanation');
+  assert.ok(calls[0].url.startsWith('https://lh.example/'), 'the request stayed on the configured origin');
+});
+
+test('no impression-reporting function exists, because the server records what it served', () => {
   const names = Object.keys(client);
-  for (const banned of ['getReasons', 'explain', 'getExplanation', 'logImpression', 'reportImpression']) {
-    assert.ok(!names.includes(banned),
-      `${banned} exists, but nothing on the server can answer it — a plausible-looking ` +
-      'reason or an invented impression is the lie §33.3 forbids');
-  }
+  assert.ok(!names.some((n) => /impression|logSeen|reportServed/i.test(n)));
 });

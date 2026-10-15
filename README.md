@@ -22,15 +22,34 @@ No build step and no runtime dependencies — deliberately, because an extension
    session and CSRF cookies; it never stores the CSRF token, and it refuses to send
    anything to a host you have not configured.
 
-## Known limitations — stated, not silently absent
+## What the server does and does not give the feed — measured, not assumed
 
-- **"Why this?" has no endpoint.** Lorehaven's `GET /api/v1/discovery` returns the works
-  but not the per-item reasons (§48.3 wants them; the data sits behind an operator route).
-  The extension renders *reasons not yet available* rather than a plausible-looking
-  breakdown, because a recomputed explanation is a lie (§33.3).
-- **Impression logging has no route.** `log_impression` exists in the server's ranking
-  layer and nothing calls it, so an impression generated here would have nowhere to go.
-  That is why the extension logs none.
+Each line below was read out of Lorehaven's own route tables and DTOs, and each is the reason
+something is shown, omitted, or stated as absent.
+
+- **"Why this?" exists.** `GET /api/v1/discovery/slots/{slot_id}/explanation` (M29, §33.3)
+  returns the *recorded* slot — `reasons[]`, `blend_score`, `served_at`, `instance_curation`,
+  `seeded_by`, `recipe_stage` — and `GET /api/v1/discovery` stamps every item with its
+  `slot_id` for exactly that purpose. The page renders the server's own words; a slot it
+  cannot read is rendered as *not available*, never as a recomputed breakdown.
+- **Impressions are the server's to record**, and it does: the discovery handler calls
+  `recommendation_slots::record_response` for every item it serves. The extension logs none,
+  because a client-side impression record would compete with the server's own account of
+  what it served.
+- **A card cannot show tags.** `PublicWorkView` (`routes/works.rs:236`) carries `id, title,
+  summary, language, rating, visibility, completion, published_at, show_public_ratings,
+  discussion_mode, rating_summary, metrics, authors, chapters, rec_blurb` — and no tags of
+  any kind, and no update time. `feed-model.js` names them in `MISSING_SERVER_FIELDS` instead
+  of inventing values; `published_at` is a publication time and is never shown as an update.
+- **Kudos and views may be `null`**: `metrics` is null when the owner has switched public
+  aggregates off (§9.5), so the page omits the number rather than printing a `0` that would
+  claim nobody had read it.
+- **The discovery feed carries ids only** (`{"work_id": …}`, plus `slot_id`), so details come
+  per work from `GET /api/v1/works/{id}`. A work whose details fail to load keeps its place:
+  the order is the server's, and a card that quietly dropped or moved would be re-ranking.
+- **Route shapes worth not guessing**: one history entry is
+  `DELETE /api/v1/library/history/{id}`, all of them are `POST /api/v1/library/history/clear`;
+  the collection has no DELETE. Notes are `GET|PUT /api/v1/notes` and `DELETE /api/v1/notes/{id}`.
 - Chromium is out of scope (§48.10). Signed-in use only — that cost is stated in §48.2.
 
 ## Port status

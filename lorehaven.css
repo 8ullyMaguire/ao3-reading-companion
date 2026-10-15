@@ -1,0 +1,33 @@
+/* lorehaven.css — the instance feed page. Deliberately small: the page shows what the
+   server said, so it needs no layout machinery to speak of. */
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 1.25rem 1.5rem 4rem; background: #14161a; color: #e7e9ee;
+  font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+h1 { font-size: 1.35rem; margin: 0 0 .15rem; }
+h2 { font-size: 1.05rem; }
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+nav button, .ghost, .primary {
+  font: inherit; border-radius: 6px; cursor: pointer; padding: .4rem .8rem;
+  border: 1px solid #333a45; background: #1d2027; color: #e7e9ee;
+}
+.primary { border-color: #4a6fa5; background: #2b4a72; }
+.cards { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr)); }
+.card { border: 1px solid #262b34; border-radius: 10px; padding: .9rem 1rem; background: #191c22; }
+.title { margin: 0 0 .3rem; font-size: 1rem; }
+.facts { margin: 0 0 .5rem; color: #9aa3b2; font-size: .85rem; }
+.summary { margin: .4rem 0; }
+.blurb { margin: .6rem 0; padding: .45rem .7rem; border-left: 2px solid #3c4858; background: #1d2129; }
+.blurb cite { display: block; margin-top: .3rem; color: #9aa3b2; font-size: .8rem; }
+.why { margin: .5rem 0; font-size: .85rem; }
+.why summary { cursor: pointer; color: #8fb0dd; }
+.why.unavailable { color: #b9a07a; }
+.badge { font-size: .7rem; padding: .1rem .35rem; border: 1px solid #444c58; border-radius: 4px; color: #9aa3b2; vertical-align: middle; }
+.tiny { font-size: .78rem; color: #8b93a1; }
+.muted { color: #9aa3b2; }
+.stale { color: #b9a07a; }
+a { color: #8fb0dd; }
+form.setup { display: grid; gap: .5rem; max-width: 30rem; margin-top: 1rem; }
+input[type=url] { font: inherit; padding: .45rem .6rem; border-radius: 6px; border: 1px solid #333a45; background: #1d2027; color: #e7e9ee; }

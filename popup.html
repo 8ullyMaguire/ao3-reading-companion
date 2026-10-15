@@ -64,6 +64,13 @@
   <h1>My AO3 Algorithm</h1>
   <p>Your personal recommendation algorithm for AO3.</p>
   <div class="status" id="status">Loading&hellip;</div>
+  <!-- §48.5: the instance is the one setting this extension cannot work without, so it is
+       on the popup at all times, never buried behind a settings page. -->
+  <div class="instance" id="instance-row">
+    <span class="instance-label">Instance</span>
+    <span class="instance-value" id="instance-value">not configured</span>
+  </div>
+  <button id="open-lorehaven">Open Lorehaven feed</button>
   <button id="open-feed" hidden>Open my feed</button>
   <button id="open-myreading" class="secondary" hidden>My Reading</button>
   <button id="open-preferences" class="secondary" hidden>Preferences</button>
@@ -71,6 +78,7 @@
   <button id="open-debug" class="secondary">Open debug console</button>
   <div class="version">Version 1.0.0</div>
   <script src="db.js"></script>
+  <script src="lorehaven.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

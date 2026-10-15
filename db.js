@@ -28,6 +28,9 @@ const STORES = {
 
 const DEFAULT_SETTINGS = {
   id: "main",
+  // §48.5: the one thing this extension must know. Set from the popup or the feed page.
+  // Empty means "not configured yet", and an unconfigured client refuses to guess (§48.5).
+  instance: "",
   scrapeDelaySeconds: 10,
   backoffOn429: true,
   behavioralSignalsEnabled: false,
@@ -369,6 +372,18 @@ async function ensureDefaultSettings() {
     return { created: true };
   }
   return { created: false };
+}
+
+async function getInstance() {
+  const s = await getSettings();
+  return ((s && s.instance) || "").trim();
+}
+
+async function setInstance(url) {
+  const s = (await getSettings()) || { ...DEFAULT_SETTINGS };
+  s.instance = (url || "").trim().replace(/\/+$/, "");
+  await dbPut(STORES.SETTINGS, s);
+  return s.instance;
 }
 
 async function resetSettingsToDefaults() {
