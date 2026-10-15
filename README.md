@@ -16,7 +16,7 @@ No build step and no runtime dependencies — deliberately, because an extension
 `npm install` is one that will not load in `about:debugging`.
 
 1. `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on* → pick `manifest.json`.
-2. Set your instance URL in the extension's settings. It is shown in the popup at all
+2. Set your instance URL in the feed page (or the popup shows which one is in use). It is shown in the popup at all
    times, so you can always see which server it is talking to (§48.5).
 3. Sign in to that instance in the same browser. The extension reads the instance's
    session and CSRF cookies; it never stores the CSRF token, and it refuses to send
@@ -62,5 +62,8 @@ to diff the tree against the plan.
 
 ```sh
 npm test          # node --test 'test/*.test.mjs' — no dependencies
-npm run check     # the read-filter harness
 ```
+
+`test/feed-page.test.mjs` drives the real page against the real client, cache and model in one
+shared scope, so the feed's behaviour is covered without a browser. It cannot prove the extension
+*loads* in Firefox — that check is still a human's, and the plan's Definition of Done lists it.

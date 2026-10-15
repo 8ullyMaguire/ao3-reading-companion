@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Lorehaven Companion",
   "version": "1.0.0",
-  "description": "Your Lorehaven instance in the toolbar: the server's own recommendations, your reading history and notes. No local ranker, no analytics, no data leaves the instance you configure.",
+  "description": "The Lorehaven client: shows your instance's recommendations, in the instance's order, with the reasons it recorded.",
   "browser_specific_settings": {
     "gecko": {
       "id": "lorehaven-companion@lorehaven",
@@ -29,16 +29,12 @@
   },
   "background": {
     "scripts": [
-      "lorehaven.js",
       "db.js",
-      "scoring.js",
-      "parsers.js",
       "background.js"
     ]
   },
   "permissions": [
     "storage",
-    "alarms",
     "cookies"
   ],
   "host_permissions": [

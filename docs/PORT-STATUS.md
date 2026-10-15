@@ -1,43 +1,69 @@
 # Port status — lorehaven-companion
 
-Written so the next reader does not have to diff the tree against the plan. The plan is
-`docs/PLAN.md`; the contract is Lorehaven's `docs/spec.md` §48.
+**The port is complete.** Every step of `docs/PLAN.md` has landed and the local ranker is gone.
+Written so the next reader does not have to diff the tree against the plan; the contract is
+Lorehaven's `docs/spec.md` §48.
 
-## Landed
+## What the extension is now
 
-| Plan step | State | Where |
-|---|---|---|
-| 1 — provenance | **done** | `README.md`, `NOTICE`, `docs/PROVENANCE.md` |
-| 2 — manifest retarget | **done** | `manifest.json` (Firefox only, `cookies` permission, instance enforced in code) |
-| 4 — the client | **done** | `lorehaven.js` — the only file that calls `fetch` |
-| 5 — the labelled cache | **done** | `cache.js` — `cached(key, loader)`, `staleLabel(entry)` |
-| 6 — the feed shows the instance | **half** | `lorehaven.html` + `lorehaven-page.js` + `feed-model.js` landed. `feed.js` (the AO3 feed, 2882 lines) is untouched and still builds its own rows. |
-| 7 — the instance setting | **done** | `db.js` (`settings.instance`, `getInstance`/`setInstance`), the popup row, the page's setup form |
-| 3 — delete the local ranker | **not started** | `scoring.js`, `dislike.js`, `parsers.js`, `tag-suggest.js` are still loaded by `feed.html` and `preferences.html`; `debug.html` still inspects their stores. |
+A client for one instance. It asks the server what to recommend, renders the answer in the
+server's order, shows the reasons the server recorded, marks what the reader has read, and states
+plainly when something is absent. **No file in this extension ranks, sorts, scores or filters a
+recommendation list** — `feed-model.js` is the only place a payload becomes a list, and
+`test/port-guard.test.mjs` is §48.2 as a test.
 
-## Why step 3 and the rest of 6 are one piece
+| File | What it is |
+|---|---|
+| `manifest.json` | Firefox only; `storage` + `cookies`; the background is two scripts |
+| `lorehaven.js` | the client — the only file that calls `fetch`, one origin rule |
+| `cache.js` | TTL cache; a failed reload serves the last copy labelled with its fetch time (§48.5) |
+| `feed-model.js` | the render model; the server's order verbatim; absences named |
+| `feed.html` / `feed.css` / `feed-page.js` | the feed |
+| `db.js` | the instance setting, and nothing else |
+| `background.js` | seeds settings on install, opens the feed once |
+| `popup.html` / `popup.js` / `popup.css` | which instance, clear the cached feed, open the feed |
 
-`feed.html` loads `scoring.js` and `dislike.js`, and `feed.js` calls them; `preferences.html`
-and `preferences.js` (1825 lines) are the AO3 taste-tuning UI. Deleting the brain before the
-old page stops calling it leaves a page that loads and then fails — worse than where it is
-now. So the remaining work is: replace `feed.js` with a page that renders `feed-model.js`'s
-output, then delete `scoring.js`, `dislike.js`, `parsers.js`, `tag-suggest.js`, `debug.*` and
-the taste half of `db.js`, and point the nav at `lorehaven.html`.
+## What was deleted, and why each part could not stay
 
-## Corrections to earlier claims in this port (measured, both mine)
+The plan's DELETE list named three files (`scoring.js`, `dislike.js`, `parsers.js`). The footprint
+was larger, and every part was measured before it went:
 
-- **`background.js` does not call the local ranker.** Its three hits for `scoring|dislike|
-  parsers` are the data *field* `dislikeReason`. The callers are the pages: `feed.js`,
-  `preferences.js`, `debug.js`. Dropping `scoring.js`/`parsers.js` from `background.scripts`
-  is therefore safe on its own — the coupling is in the pages, not the background.
-- **`DELETE /api/v1/library/history/{id}` does exist** (`reading.rs:58`). An earlier revision
-  of this port removed it in favour of a collection-level `DELETE /api/v1/library/history`,
-  which is *not* a route. The id-suffixed form was right; the collection form was the
-  invented one. Both are now in the client, correctly.
+- **`scoring.js`, `dislike.js`, `parsers.js`** — the ranker and the parser. §48.2 moves ranking to
+  the instance.
+- **`content.js` and `background.js`'s scrape half** — the AO3 collection pipeline: listing
+  scrapes, subscription syncs, the login check, and the history/reading-time messages. It fed the
+  local stores and the local ranker; with both gone it had no consumer, and its content script was
+  already out of the manifest.
+- **`tag-suggest.js`** — mined tags from browsed pages to feed the taste store. Its consumer is
+  the taste store, which is gone.
+- **`debug.js` / `debug.html`** — the store inspector: three of the four stores it inspected no
+  longer exist.
+- **`feed.js` (2882 lines), `feed.html`, `feed.css`** — the AO3 feed: seven row definitions, a
+  custom-row builder, a manage-rows modal and an AO3 sync, all reading one scoring context.
+  Replaced by `feed-page.js`.
+- **`preferences.js` (1825 lines), `onboarding.js`, `myreading.js`** — taste tuning, AO3 onboarding,
+  and a reading list built from scraped fic metadata. Each needed the pipeline.
 
-## The rule the remaining work must keep
+`db.js` keeps its database name, and its old stores are left in place rather than deleted: deleting
+a reader's local data to tidy a schema is not a trade this extension gets to make. Nothing reads
+them.
 
-The server ranks. The client renders, marks, and states absences. Nothing in the extension
-sorts, scores, jitters or filters a recommendation list — `feed-model.js` is the only place a
-payload becomes a list, and its tests pin the server's order against payloads whose scores
-disagree with it.
+## Corrections made along the way, all measured
+
+- **`background.js` never called the local ranker.** Its three hits for `scoring|dislike|parsers`
+  were the data *field* `dislikeReason`; the callers were the *pages*.
+- **`DELETE /api/v1/library/history/{id}` exists** (`reading.rs:58`). An earlier revision had
+  replaced it with a collection-level DELETE, which is not a route.
+- **"Why this?" has an endpoint** — `GET /api/v1/discovery/slots/{slot_id}/explanation` — and the
+  discovery handler stamps every item with its `slot_id`. The plan's §48.3 limitation was stale.
+- **Impressions are the server's to record**, and it does, at serve time. The client logs none.
+- **A card cannot show tags**: `PublicWorkView` carries no tags and no update time. Named in
+  `feed-model.js` as `MISSING_SERVER_FIELDS` instead of defaulted.
+
+## What is not verified here
+
+**No browser was used.** `test/feed-page.test.mjs` drives the real `feed-page.js` against the real
+client, cache and model in one shared scope, with a stubbed DOM, storage and `fetch` — so the page's
+behaviour is covered, including the answers that are absences. That is not the same as the extension
+loading in Firefox: the manual checks in the plan's Definition of Done (load it, see the feed, click
+through) remain for a human with a browser.

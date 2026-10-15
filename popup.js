@@ -1,68 +1,50 @@
-// Popup script for My AO3 Algorithm.
-// Phase 6: cache-aware status — distinguishes "setup not done" /
-// "setup done, cache empty" / "feed ready".
-
-console.log("[My AO3 Algorithm] Popup opened.");
+// popup.js — the popup's whole job after §48: say which instance this extension talks to,
+// and open the feed. There is no cache to count and no setup to run in here any more: the
+// feed page serves its own setup form, so an unconfigured reader is one click away from it.
+console.log('[Lorehaven] Popup opened.');
 
 function openInTab(htmlPath) {
-  const url = browser.runtime.getURL(htmlPath);
-  browser.tabs.create({ url });
+  browser.tabs.create({ url: browser.runtime.getURL(htmlPath) });
   window.close();
 }
 
 (async function () {
-  const statusEl = document.getElementById("status");
-  const onboardingBtn = document.getElementById("open-onboarding");
-  const feedBtn = document.getElementById("open-feed");
-  const myReadingBtn = document.getElementById("open-myreading");
-  const preferencesBtn = document.getElementById("open-preferences");
-  const instanceValue = document.getElementById("instance-value");
+  const statusEl = document.getElementById('status');
+  const instanceValue = document.getElementById('instance-value');
+  const feedBtn = document.getElementById('open-lorehaven');
+  const refreshBtn = document.getElementById('refresh-cache');
 
-  // The server, not the local cache, is where recommendations come from (§48) — so the
-  // popup's headline state is the instance, and the cache line is secondary.
-  let instance = "";
-  try { instance = (await getInstance()) || ""; } catch (e) { console.error(e); }
-  if (instanceValue) {
-    instanceValue.textContent = instance || "not configured";
-    instanceValue.classList.toggle("warn", !instance);
-  }
-  const lorehavenBtn = document.getElementById("open-lorehaven");
-  if (lorehavenBtn) {
-    lorehavenBtn.addEventListener("click", () => openInTab("lorehaven.html"));
-  }
-
-  let completed = false;
-  let cacheCount = 0;
+  let instance = '';
   try {
-    const onboarding = await dbGet("preferences", "onboarding");
-    completed = !!(onboarding && onboarding.completedAt);
-    cacheCount = await dbCount("ficCache");
+    instance = (await getInstance()) || '';
   } catch (e) {
-    console.error("[My AO3 Algorithm] Popup could not read DB state:", e);
+    console.error('[Lorehaven] popup could not read settings:', e);
+    statusEl.textContent = 'Could not read this extension\'s settings.';
+    return;
   }
 
-  if (!completed) {
-    statusEl.classList.add("warn");
-    statusEl.textContent = "First-time setup hasn't finished yet. Run setup to teach the extension your tastes.";
-    onboardingBtn.textContent = "Run setup";
-  } else if (cacheCount === 0) {
-    statusEl.classList.add("warn");
-    statusEl.textContent = "No cached fics yet. Browse a tag or fandom on AO3 and your feed will fill up.";
-    onboardingBtn.textContent = "Re-run setup";
-    feedBtn.hidden = false;
-    myReadingBtn.hidden = false;
-    preferencesBtn.hidden = false;
+  instanceValue.textContent = instance || 'not configured';
+  instanceValue.classList.toggle('warn', !instance);
+  if (instance) {
+    statusEl.textContent = 'Recommendations come from this instance.';
+    refreshBtn.hidden = false;
   } else {
-    statusEl.textContent = `Feed ready — ${cacheCount} fic${cacheCount === 1 ? "" : "s"} in cache.`;
-    onboardingBtn.textContent = "Re-run setup";
-    feedBtn.hidden = false;
-    myReadingBtn.hidden = false;
-    preferencesBtn.hidden = false;
+    statusEl.classList.add('warn');
+    statusEl.textContent = 'No instance yet — open the feed and set one.';
   }
 
-  feedBtn.addEventListener("click", () => openInTab("feed.html"));
-  myReadingBtn.addEventListener("click", () => openInTab("myreading.html"));
-  preferencesBtn.addEventListener("click", () => openInTab("preferences.html"));
-  onboardingBtn.addEventListener("click", () => openInTab("onboarding.html"));
-  document.getElementById("open-debug").addEventListener("click", () => openInTab("debug.html"));
+  feedBtn.addEventListener('click', () => openInTab('feed.html'));
+  refreshBtn.addEventListener('click', async () => {
+    try {
+      const all = await browser.storage.local.get(null);
+      const keys = Object.keys(all).filter((k) => k.startsWith('lh:'));
+      if (keys.length) await browser.storage.local.remove(keys);
+      statusEl.textContent = keys.length
+        ? `Cleared ${keys.length} cached answer${keys.length === 1 ? '' : 's'}.`
+        : 'Nothing cached yet.';
+    } catch (e) {
+      statusEl.textContent = 'Could not clear the cache.';
+      console.error(e);
+    }
+  });
 })();

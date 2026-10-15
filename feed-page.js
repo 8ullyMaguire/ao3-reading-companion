@@ -18,8 +18,9 @@
     }
   }
 
-  function count(n, word) {
-    return typeof n === 'number' ? `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}` : null;
+  // An explicit plural, because "kudos" is one: "3 kudoss" is what a naive `+ 's'` prints.
+  function count(n, singular, plural = singular + 's') {
+    return typeof n === 'number' ? `${n.toLocaleString()} ${n === 1 ? singular : plural}` : null;
   }
 
   // The reason block. THREE outcomes, never two: recorded reasons, a recorded slot with no
@@ -57,7 +58,7 @@
       f.isComplete ? 'complete' : null,
       count(f.wordCount, 'word'),
       f.chapters ? `${f.chapters} chapter${f.chapters === 1 ? '' : 's'}` : null,
-      count(f.kudos, 'kudos'),
+      count(f.kudos, 'kudos', 'kudos'),
       count(f.hits, 'view'),
       count(f.bookmarks, 'bookmark'),
     ].filter(Boolean);
@@ -86,6 +87,16 @@
     </form>`;
   }
 
+  async function submitInstance(ev) {
+    ev.preventDefault();
+    const value = $('instance-url').value.trim();
+    if (!value) return;
+    await setInstance(value);
+    // A different instance has different data; the cached copies belong to the old one.
+    try { await browser.storage.local.remove(Object.keys(await browser.storage.local.get(null)).filter((k) => k.startsWith('lh:'))); } catch (e) { /* no storage: nothing cached */ }
+    load();
+  }
+
   async function load() {
     let instance = '';
     try { instance = (await getInstance()) || ''; } catch (e) { console.error(e); }
@@ -93,13 +104,7 @@
     $('instance-line').textContent = instance || 'no instance configured';
     if (!instance) {
       $('state-setup').innerHTML = setupForm('');
-      $('instance-form').addEventListener('submit', async (ev) => {
-        ev.preventDefault();
-        const value = $('instance-url').value.trim();
-        if (!value) return;
-        await setInstance(value);
-        load();
-      });
+      $('instance-form').addEventListener('submit', submitInstance);
       show('state-setup');
       return;
     }
@@ -146,6 +151,15 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    // Changing the instance is always reachable, not only when none is set: an operator may
+    // move their instance, and a setting a reader cannot revise is not a setting.
+    const change = $('change-instance');
+    if (change) change.addEventListener('click', async () => {
+      const current = (await getInstance()) || '';
+      $('state-setup').innerHTML = setupForm(current);
+      $('instance-form').addEventListener('submit', submitInstance);
+      show('state-setup');
+    });
     const refresh = $('refresh');
     if (refresh) refresh.addEventListener('click', async () => {
       const instance = (await getInstance()) || '';

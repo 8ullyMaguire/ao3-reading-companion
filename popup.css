@@ -1,0 +1,20 @@
+/* popup.css — the action popup. Small on purpose: it says which instance, and opens the feed. */
+:root { color-scheme: dark; }
+body {
+  margin: 0; padding: .9rem 1rem; width: 20rem; background: #14161a; color: #e7e9ee;
+  font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+h1 { font-size: 1.05rem; margin: 0 0 .2rem; }
+p { margin: 0 0 .7rem; color: #9aa3b2; }
+.instance { display: flex; gap: .5rem; align-items: baseline; margin-bottom: .5rem; }
+.instance-label { color: #8b93a1; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
+.instance-value { font-size: .85rem; word-break: break-all; }
+.status { color: #9aa3b2; font-size: .85rem; margin-bottom: .7rem; }
+.status.warn { color: #b9a07a; }
+.instance-value.warn { color: #b9a07a; }
+button {
+  font: inherit; width: 100%; margin-bottom: .4rem; padding: .45rem .7rem; cursor: pointer;
+  border: 1px solid #4a6fa5; border-radius: 6px; background: #2b4a72; color: #e7e9ee;
+}
+button.secondary { border-color: #333a45; background: #1d2027; }
+.version { margin-top: .6rem; color: #6b7280; font-size: .72rem; }
