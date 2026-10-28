@@ -1,8 +1,8 @@
 {
-  "name": "ao3-reading-companion",
+  "name": "darkhold-companion",
   "version": "1.0.0",
   "private": true,
-  "description": "Test scripts for the AO3 reading companion extension. The extension itself has no build step and no dependencies.",
+  "description": "Test scripts for the Darkhold companion extension (a fork of ao3-reading-companion). The extension itself has no build step and no dependencies.",
   "type": "commonjs",
   "scripts": {
     "test": "node --test 'test/*.test.mjs'",

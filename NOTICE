@@ -1,4 +1,4 @@
-lorehaven-companion is a fork of ao3-reading-companion
+darkhold-companion is a fork of ao3-reading-companion
 (https://github.com/8ullyMaguire/ao3-reading-companion), MIT licensed,
 Copyright (c) 2026 DisastrousClass. The LICENSE file is upstream's, unmodified.
 
@@ -8,4 +8,4 @@ normalised to one. Confirming it is a precondition of RELEASE, not of
 development: the code is MIT either way.
 
 Forked from upstream commit 8753a64. The recommender was replaced -- see
-lorehaven docs/spec.md section 48.2 for why the extension holds no ranker.
+darkhold docs/spec.md section 48.2 for why the extension holds no ranker.

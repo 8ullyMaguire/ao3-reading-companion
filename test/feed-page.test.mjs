@@ -87,7 +87,7 @@ async function boot({ instance = '', routes, storage = {} } = {}) {
     },
   });
 
-  for (const f of ['lorehaven.js', 'cache.js', 'feed-model.js', 'feed-page.js']) {
+  for (const f of ['darkhold.js', 'cache.js', 'feed-model.js', 'feed-page.js']) {
     vm.runInContext(readFileSync(join(root, f), 'utf8'), context, { filename: f });
   }
   for (const fn of (docListeners.DOMContentLoaded || [])) await fn();
@@ -116,7 +116,7 @@ test('with no instance the page asks for one and sends nothing anywhere (§48.5)
   const { elements, requested } = await boot({ instance: '' });
   await settle();
   assert.equal(elements['state-setup'].hidden, false);
-  assert.match(elements['state-setup'].innerHTML, /Lorehaven instance/);
+  assert.match(elements['state-setup'].innerHTML, /Darkhold instance/);
   assert.equal(elements['feed-main'].hidden, true);
   assert.deepEqual(requested, [], 'an unconfigured client must not guess a host');
   assert.match(elements['instance-line'].textContent, /no instance configured/);
@@ -201,6 +201,6 @@ test("changing the instance offers the form again, whatever is cached", async ()
   await settle();
   elements['change-instance'].listeners.click[0]();
   await settle();
-  assert.match(elements['state-setup'].innerHTML, /Lorehaven instance/);
+  assert.match(elements['state-setup'].innerHTML, /Darkhold instance/);
   assert.equal(elements['state-setup'].hidden, false);
 });

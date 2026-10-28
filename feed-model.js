@@ -9,7 +9,7 @@
 // is the one thing §48 forbids.
 //
 // Pure functions over plain data: no fetch, no DOM, no browser API. The client
-// (lorehaven.js) does the talking; this decides what the result means.
+// (darkhold.js) does the talking; this decides what the result means.
 
 /** §48.3: what the reader has already read, from the server's own history. */
 function readSetFromHistory(history) {

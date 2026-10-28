@@ -1,4 +1,4 @@
-// lorehaven-page.js — the instance feed: what the instance recommends, in the instance's
+// darkhold-page.js — the instance feed: what the instance recommends, in the instance's
 // order, with the reasons it recorded.
 //
 // This page does no ranking of any kind (§48.2). It asks, it renders, and where it does not
@@ -79,8 +79,8 @@
 
   function setupForm(instance) {
     return `<form id="instance-form" class="setup">
-      <label for="instance-url">Lorehaven instance</label>
-      <input id="instance-url" type="url" required placeholder="https://lorehaven.example"
+      <label for="instance-url">Darkhold instance</label>
+      <input id="instance-url" type="url" required placeholder="https://darkhold.example"
              value="${esc(instance)}" autocomplete="off" spellcheck="false">
       <button type="submit" class="primary">Use this instance</button>
       <p class="tiny">Requests go to this origin or they do not go (§48.5).</p>

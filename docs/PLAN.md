@@ -1,6 +1,6 @@
-# lorehaven-companion — the Firefox companion
+# darkhold-companion — the Firefox companion
 
-> Contract lives in `lorehaven/docs/spec.md` **§48**. This file is the *how*.
+> Contract lives in `darkhold/docs/spec.md` **§48**. This file is the *how*.
 > Read §48 first; it is the authority on what may be built, and this plan
 > implements it rather than re-deciding it.
 
@@ -23,21 +23,21 @@ filtering server-only.
 KEEP    manifest.json (retarget), feed.*, myreading.*, preferences.*,
         onboarding.*, popup.*, icons/, test harness shape
 DELETE  scoring.js, db.js (taste + affinity stores only), dislike.js, parsers.js
-ADD     lorehaven.js (the API client), cache.js, tests/
+ADD     darkhold.js (the API client), cache.js, tests/
 ```
 
 `db.js` needs care: it is one file with both a taste store and a read-tracking
 store. Delete the taste/affinity half, keep the read-tracking half, because §48.3
 still needs to know what the reader has read.
 
-## 1. What lorehaven gives the extension, and what it does not
+## 1. What darkhold gives the extension, and what it does not
 
 Verified against the tree on 2026-09-30. This table is the port's whole contract.
 
-| Need | Lorehaven has it? | Route / symbol |
+| Need | Darkhold has it? | Route / symbol |
 |---|---|---|
-| Session cookie | yes | `lorehaven_session` (`crates/app/src/auth.rs:36`) |
-| CSRF token cookie | yes | `lorehaven_csrf` + `x-csrf-token` header (`:39`, `:42`) |
+| Session cookie | yes | `darkhold_session` (`crates/app/src/auth.rs:36`) |
+| CSRF token cookie | yes | `darkhold_csrf` + `x-csrf-token` header (`:39`, `:42`) |
 | CSRF enforcement | **configurable** | `security.csrf_required`, checked at `auth.rs:164`; only safe methods skip it (`auth.rs:816`) |
 | Recommended feed | yes | `GET /api/v1/discovery` (`routes/discovery.rs:22`) |
 | Feed with per-item reasons | **NO** | no `explain` param, no `SlotExplanation` in the response |
@@ -77,18 +77,18 @@ Verified against the tree on 2026-09-30. This table is the port's whole contract
 
 ## 2. The CSRF problem, stated before it bites
 
-Lorehaven requires `x-csrf-token` on non-safe methods when
+Darkhold requires `x-csrf-token` on non-safe methods when
 `security.csrf_required` is on. A browser extension holds no DOM cookie jar it can
-read `HttpOnly` values from, and `lorehaven_csrf` is deliberately script-readable
+read `HttpOnly` values from, and `darkhold_csrf` is deliberately script-readable
 precisely so clients can echo it.
 
-**The client therefore reads `lorehaven_csrf` from `document.cookie` and sends it
+**The client therefore reads `darkhold_csrf` from `document.cookie` and sends it
 as `x-csrf-token` on every POST/PUT/DELETE.** Three consequences:
 
 1. The extension only works against an instance with `csrf_required = true` if it
    can read that cookie. If an operator disables CSRF, the extension still works
    (no header needed). Both paths are supported.
-2. If an instance ever marks `lorehaven_csrf` `HttpOnly`, the extension's writes
+2. If an instance ever marks `darkhold_csrf` `HttpOnly`, the extension's writes
    break. That is a server change to §9's auth model, and it is flagged here
    rather than worked around.
 3. The extension must not log or store the CSRF token. It reads it, sends it,
@@ -102,7 +102,7 @@ context should be able to run these in order and stop at the first divergence.
 ### Step 1 — the fork, with provenance
 
 ```sh
-cd ~/code-local/rust/lorehaven-companion
+cd ~/code-local/rust/darkhold-companion
 git fetch upstream main
 git reset --hard upstream/main          # start from upstream, not from my notes
 npm test                               # 41 passing, before any edit
@@ -116,7 +116,7 @@ Then rewrite the three provenance files. `LICENSE` stays **verbatim** (upstream 
 
 ```sh
 cat > NOTICE <<'EOF'
-lorehaven-companion is a fork of ao3-reading-companion
+darkhold-companion is a fork of ao3-reading-companion
 (https://github.com/8ullyMaguire/ao3-reading-companion), MIT licensed,
 Copyright (c) 2026 DisastrousClass. The LICENSE file is upstream's, unmodified.
 
@@ -126,7 +126,7 @@ normalised to one. Confirming it is a precondition of RELEASE, not of
 development: the code is MIT either way.
 
 Forked from upstream commit 8753a64. The recommender was replaced -- see
-lorehaven docs/spec.md section 48.2 for why the extension holds no ranker.
+darkhold docs/spec.md section 48.2 for why the extension holds no ranker.
 EOF
 ```
 
@@ -140,28 +140,31 @@ provenance is a file you can diff.
 
 Rewrite `manifest.json`. Firefox-only, per §48.10. Changes from upstream:
 
-- `name` → `Lorehaven Companion`
-- `gecko.id` → `lorehaven-companion@lorehaven` (an add-on id must be stable
-  forever; this is a decision, not a placeholder)
-- `content_scripts[0].matches` → `https://lorehaven.invalid/*` **removed entirely**:
-  there is no Lorehaven web page to inject into, because Lorehaven is a server
+- `name` → `Darkhold Companion`
+- `gecko.id` → `lorehaven-companion@lorehaven` — **deliberately unchanged by the
+  rename**. The id is the extension's identity to Firefox: changing it makes a new
+  installation rather than an upgrade, leaving the old one installed side by side
+  and every existing reader's settings behind. The display name, the title and the
+  file names moved; the id did not. See `RENAME-NOTES.md`.
+- `content_scripts[0].matches` → `https://darkhold.invalid/*` **removed entirely**:
+  there is no Darkhold web page to inject into, because Darkhold is a server
   application and this extension is a standalone surface. No content script.
 - `host_permissions` → the reader's configured instance. Firefox does **not**
   support a dynamic `host_permissions` value at runtime from `storage` without
   `permissions.request()` at runtime, which prompts. **Decision: request
   `host_permissions` for `*://*/*` once at first run** and refuse to send anything
-  to a host the reader has not configured, enforced in `lorehaven.js` — because
+  to a host the reader has not configured, enforced in `darkhold.js` — because
   §48.5's guarantee is "credentials go only to the configured instance", and a
   per-instance permission prompt on every instance switch is worse UX than one
   honest broad permission the code never abuses.
-- `background.scripts` → `["lorehaven.js", "db.js", "background.js"]` (drop
-  `scoring.js`, add `lorehaven.js`)
+- `background.scripts` → `["darkhold.js", "db.js", "background.js"]` (drop
+  `scoring.js`, add `darkhold.js`)
 
 **Verify:**
 ```sh
 node -e "const m=require('./manifest.json'); console.log(m.content_scripts===undefined||m.content_scripts.length===0, m.background.scripts.join(','), m.browser_specific_settings.gecko.strict_min_version)"
 ```
-prints `true lorehaven.js,db.js,background.js 115.0`.
+prints `true darkhold.js,db.js,background.js 115.0`.
 
 ### Step 3 — delete the brain, and prove it is gone
 
@@ -203,7 +206,7 @@ test('no module can compute a ranking locally (§48.2)', () => {
 });
 
 test('every fetch target is the configured instance (§48.5)', async () => {
-  const src = readFileSync('lorehaven.js', 'utf8');
+  const src = readFileSync('darkhold.js', 'utf8');
   assert.ok(src.includes('assertConfiguredOrigin'),
     'the API client must check its target origin before every request');
 });
@@ -215,18 +218,18 @@ shown red is not evidence.
 
 ### Step 4 — the API client
 
-New file `lorehaven.js`. The only place that calls `fetch`. Shape:
+New file `darkhold.js`. The only place that calls `fetch`. Shape:
 
 ```js
 'use strict';
-const SESSION_COOKIE = 'lorehaven_session';   // auth.rs:36
-const CSRF_COOKIE = 'lorehaven_csrf';        // auth.rs:39
+const SESSION_COOKIE = 'darkhold_session';   // auth.rs:36
+const CSRF_COOKIE = 'darkhold_csrf';        // auth.rs:39
 const CSRF_HEADER = 'x-csrf-token';          // auth.rs:42
 
 let configuredBase = null;   // e.g. https://reading.example.org
 
 function configuredOrigin() {
-  if (!configuredBase) throw new Error('No Lorehaven instance configured (§48.5)');
+  if (!configuredBase) throw new Error('No Darkhold instance configured (§48.5)');
   return new URL(configuredBase).origin;
 }
 
@@ -273,11 +276,11 @@ async function api(path, { method = 'GET', body } = {}) {
 | `getDnf()` | `api('/api/v1/me/dnf')` | filters, **display only** |
 | `getStreak()` | `api('/api/v1/me/streak')` | streak |
 
-`test/lorehaven-client.test.mjs` covers the origin assertion with a real
+`test/darkhold-client.test.mjs` covers the origin assertion with a real
 counter-test: a request to `https://evil.example/` must throw. And a test that
 `assertConfiguredOrigin` is called on the *write* path too, not only reads.
 
-**Verify:** `node --test test/lorehaven-client.test.mjs` → `N passed`. A client
+**Verify:** `node --test test/darkhold-client.test.mjs` → `N passed`. A client
 with no tests is how an extension ends up POSTing someone's notes to a host it
 should not.
 
@@ -318,7 +321,7 @@ server returns one ordering, so seven client-side row types would be seven ways
 for the extension to disagree with it.
 
 The one genuine port: `buildMatchStrengthLabel(breakdown)` at `feed.js:618` takes
-a `{tag, author, fandom, content}` breakdown. Lorehaven's `SlotExplanation`
+a `{tag, author, fandom, content}` breakdown. Darkhold's `SlotExplanation`
 (§33.3) has a different shape, so **the function is retained but the shape changes**
 to accept a `SlotExplanation`, and until the endpoint exists (§1) it renders a
 stated "reasons not yet available" rather than a fabricated breakdown. Rendering a
@@ -342,7 +345,7 @@ base URL renders in the popup on every open.
 ### Step 8 — the full gate
 
 ```sh
-cd ~/code-local/rust/lorehaven-companion
+cd ~/code-local/rust/darkhold-companion
 npm test                    # every test in the fork
 npm run check               # the read-filter harness, retargeted
 node --test test/no-local-ranker.test.mjs   # the §48.2 guard, explicitly
@@ -352,7 +355,7 @@ Then **manual**, because no unit test proves an extension loads:
 
 1. `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on* → pick
    `manifest.json`. It must load with **no** errors in the console.
-2. Set the instance to a running Lorehaven. Open the popup. The feed renders real
+2. Set the instance to a running Darkhold. Open the popup. The feed renders real
    works from `/api/v1/discovery`.
 3. Stop the server. Reload the popup. The feed shows the cached copy **labelled as
    cached with its age**, and does not claim to be live.
@@ -371,9 +374,9 @@ Then **manual**, because no unit test proves an extension loads:
       affinity stores removed, its read-tracking kept
 - [ ] `test/no-local-ranker.test.mjs` passes **and was shown to fail** when
       `scoring.js` is restored
-- [ ] `lorehaven.js` is the only file that calls `fetch`; every request asserts
+- [ ] `darkhold.js` is the only file that calls `fetch`; every request asserts
       its origin first; the off-instance request test is a real counter-test
-- [ ] CSRF handled per §2: read `lorehaven_csrf`, send `x-csrf-token` on writes,
+- [ ] CSRF handled per §2: read `darkhold_csrf`, send `x-csrf-token` on writes,
       never store it
 - [ ] Cache is labelled stale with its age; a cold cache + dead server throws
 - [ ] All seven upstream feed rows deleted; no client-side ordering path exists

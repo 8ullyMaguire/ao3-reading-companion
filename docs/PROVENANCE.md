@@ -6,7 +6,7 @@
 | Forked from | `8753a64` |
 | Licence | MIT — `LICENSE` is upstream's file, byte-for-byte |
 | Copyright | `(c) 2026 DisastrousClass` (upstream's line; the repository owner is `8ullyMaguire`) |
-| Contract | `lorehaven/docs/spec.md` §48 — this extension implements it and does not re-decide it |
+| Contract | `darkhold/docs/spec.md` §48 — this extension implements it and does not re-decide it |
 | Plan | `docs/PLAN.md` (commit `442598c`) |
 
 Verified 2026-10-15:

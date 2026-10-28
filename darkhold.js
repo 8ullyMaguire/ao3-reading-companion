@@ -1,7 +1,7 @@
 'use strict';
-// lorehaven.js — the only file in this extension that calls fetch (§48.2).
+// darkhold.js — the only file in this extension that calls fetch (§48.2).
 //
-// The extension holds no ranker and no taste store: Lorehaven's server decides what is
+// The extension holds no ranker and no taste store: Darkhold's server decides what is
 // shown, and this client is the whole of the extension's view of it. Two rules from §48.5
 // are enforced here rather than documented and hoped for:
 //
@@ -19,9 +19,15 @@
 // The plan's §47 blocker ("log_impression has no route") is answered by a better mechanism
 // on the server side, not by a route.
 
-const SESSION_COOKIE = 'lorehaven_session'; // lorehaven auth.rs:36
-const CSRF_COOKIE = 'lorehaven_csrf';       // lorehaven auth.rs:39
-const CSRF_HEADER = 'x-csrf-token';         // lorehaven auth.rs:42
+// The instance's cookie names — they moved when the server was renamed. The OLD spellings
+// are still read for the CSRF token (see readLegacyCsrf): a browser that was signed in
+// before the server renamed its cookies keeps `lorehaven_csrf` until it expires, and
+// refusing it would turn the rename into "every write 403s and nothing says why".
+const SESSION_COOKIE = 'darkhold_session';   // darkhold auth.rs:36
+const CSRF_COOKIE = 'darkhold_csrf';         // darkhold auth.rs:39
+const LEGACY_SESSION_COOKIE = 'lorehaven_session'; // pre-rename, read-only, never sent
+const LEGACY_CSRF_COOKIE = 'lorehaven_csrf';       // pre-rename, fallback below
+const CSRF_HEADER = 'x-csrf-token';          // darkhold auth.rs:42
 const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
 
 let configuredBase = null;
@@ -37,7 +43,7 @@ function setCookieReader(fn) {
 }
 
 function configuredOrigin() {
-  if (!configuredBase) throw new Error('No Lorehaven instance configured (§48.5)');
+  if (!configuredBase) throw new Error('No Darkhold instance configured (§48.5)');
   return new URL(configuredBase).origin;
 }
 
@@ -86,12 +92,41 @@ function apiUrl(target) {
   return url;
 }
 
+let warnedLegacyCsrf = false;
+
+/**
+ * The CSRF token under its pre-rename cookie name.
+ *
+ * A reader who signed in before the server renamed its cookies still has
+ * `lorehaven_csrf` in the browser until that cookie expires. The rename must not turn
+ * into "writes 403 and nothing explains it", so the old name is read — and the move is
+ * said out loud, once, because a fallback nobody is told about is one nobody removes.
+ * Never written, never sent anywhere but the header it already belongs in.
+ */
+async function readLegacyCsrf(url) {
+  let value = null;
+  try {
+    value = await cookieReader(LEGACY_CSRF_COOKIE, url);
+  } catch {
+    // No cookie jar (a test, or a browser without the API): nothing to fall back to.
+    return null;
+  }
+  if (value && !warnedLegacyCsrf) {
+    warnedLegacyCsrf = true;
+    console.warn(
+      `[Darkhold] ${LEGACY_CSRF_COOKIE} is still present; the instance now sets ${CSRF_COOKIE}. ` +
+      'The old cookie is read until it expires — sign in again to replace it.'
+    );
+  }
+  return value;
+}
+
 async function api(path, { method = 'GET', body } = {}) {
   const url = apiUrl(path);
   const headers = { accept: 'application/json' };
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (!SAFE_METHODS.includes(method)) {
-    const csrf = await cookieReader(CSRF_COOKIE, url);
+    const csrf = (await cookieReader(CSRF_COOKIE, url)) || (await readLegacyCsrf(url));
     if (csrf) headers[CSRF_HEADER] = csrf;
   }
   const res = await fetch(url, {
@@ -163,6 +198,8 @@ const apiSurface = {
   getStreak,
   SESSION_COOKIE,
   CSRF_COOKIE,
+  LEGACY_SESSION_COOKIE,
+  LEGACY_CSRF_COOKIE,
   CSRF_HEADER,
   SAFE_METHODS,
 };

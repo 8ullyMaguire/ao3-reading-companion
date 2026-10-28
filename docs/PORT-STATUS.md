@@ -1,8 +1,8 @@
-# Port status — lorehaven-companion
+# Port status — darkhold-companion
 
 **The port is complete.** Every step of `docs/PLAN.md` has landed and the local ranker is gone.
 Written so the next reader does not have to diff the tree against the plan; the contract is
-Lorehaven's `docs/spec.md` §48.
+Darkhold's `docs/spec.md` §48.
 
 ## What the extension is now
 
@@ -15,7 +15,7 @@ recommendation list** — `feed-model.js` is the only place a payload becomes a 
 | File | What it is |
 |---|---|
 | `manifest.json` | Firefox only; `storage` + `cookies`; the background is two scripts |
-| `lorehaven.js` | the client — the only file that calls `fetch`, one origin rule |
+| `darkhold.js` | the client — the only file that calls `fetch`, one origin rule |
 | `cache.js` | TTL cache; a failed reload serves the last copy labelled with its fetch time (§48.5) |
 | `feed-model.js` | the render model; the server's order verbatim; absences named |
 | `feed.html` / `feed.css` / `feed-page.js` | the feed |

@@ -7,7 +7,7 @@
 //
 // What is left is what a client still needs: default settings on install, and the feed page
 // — which serves its own setup form — on first install.
-console.log('[Lorehaven] Background script loaded.');
+console.log('[Darkhold] Background script loaded.');
 
 browser.runtime.onInstalled.addListener(async (details) => {
   try {
@@ -16,6 +16,6 @@ browser.runtime.onInstalled.addListener(async (details) => {
       browser.tabs.create({ url: browser.runtime.getURL('feed.html') });
     }
   } catch (e) {
-    console.error('[Lorehaven] install setup failed:', e);
+    console.error('[Darkhold] install setup failed:', e);
   }
 });

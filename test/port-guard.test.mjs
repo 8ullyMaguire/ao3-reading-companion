@@ -19,7 +19,7 @@ test('the modules §48 deletes are gone, and nothing still references them', () 
     assert.ok(!existsSync(join(root, f)), `${f} should have been deleted`);
   }
   for (const file of [...htmlFiles(), 'manifest.json', 'background.js', 'db.js', 'popup.js',
-    'feed-page.js', 'feed-model.js', 'lorehaven.js', 'cache.js']) {
+    'feed-page.js', 'feed-model.js', 'darkhold.js', 'cache.js']) {
     const body = read(file);
     for (const gone of DELETED) {
       assert.ok(!body.includes(gone), `${file} still references ${gone}`);
@@ -41,7 +41,7 @@ test('every script the manifest and the pages load exists — no dangling refere
 
 test('the feed page loads exactly the modules the port needs, and no ranker', () => {
   const scripts = [...read('feed.html').matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(scripts, ['db.js', 'lorehaven.js', 'cache.js', 'feed-model.js', 'feed-page.js']);
+  assert.deepEqual(scripts, ['db.js', 'darkhold.js', 'cache.js', 'feed-model.js', 'feed-page.js']);
 });
 
 test('the page asks the client, the cache and the model — and never a scoring function', () => {
@@ -70,7 +70,7 @@ test('the instance is one setting with one reader, and the client refuses to gue
   assert.ok(read('db.js').includes('instance: ""'));
   const page = read('feed-page.js');
   assert.ok(page.includes('getInstance') && page.includes('setInstance'));
-  assert.ok(read('lorehaven.js').includes('No Lorehaven instance configured'));
+  assert.ok(read('darkhold.js').includes('No Darkhold instance configured'));
   // Old stores are left alone rather than deleted, and settings is the only store declared.
   assert.ok(read('db.js').includes('SETTINGS: "settings"'));
   assert.ok(!read('db.js').includes('DISLIKE_HISTORY'));

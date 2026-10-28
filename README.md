@@ -1,9 +1,10 @@
-# Lorehaven Companion
+# Darkhold Companion
 
-A Firefox extension that puts your configured [Lorehaven](https://git.polarisocial.xyz/hirrolot19/lorehaven)
+A Firefox extension that puts your configured [Darkhold](https://git.polarisocial.xyz/hirrolot19/lorehaven)
 instance in the toolbar: the recommended feed, your reading history and notes, and the
 works you are part-way through — for the reader who wants the instance's judgement, not a
-second one invented in the browser.
+second one invented in the browser. (The link still says `lorehaven`: that is where the
+repository is hosted. The project is Darkhold; the forge path has not been renamed yet.)
 
 A fork of [`ao3-reading-companion`](https://github.com/8ullyMaguire/ao3-reading-companion)
 (MIT, see `NOTICE` and `docs/PROVENANCE.md`). The fork keeps upstream's shell and removes
@@ -24,7 +25,7 @@ No build step and no runtime dependencies — deliberately, because an extension
 
 ## What the server does and does not give the feed — measured, not assumed
 
-Each line below was read out of Lorehaven's own route tables and DTOs, and each is the reason
+Each line below was read out of Darkhold's own route tables and DTOs, and each is the reason
 something is shown, omitted, or stated as absent.
 
 - **"Why this?" exists.** `GET /api/v1/discovery/slots/{slot_id}/explanation` (M29, §33.3)

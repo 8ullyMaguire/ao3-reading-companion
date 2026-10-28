@@ -1,7 +1,7 @@
 // popup.js — the popup's whole job after §48: say which instance this extension talks to,
 // and open the feed. There is no cache to count and no setup to run in here any more: the
 // feed page serves its own setup form, so an unconfigured reader is one click away from it.
-console.log('[Lorehaven] Popup opened.');
+console.log('[Darkhold] Popup opened.');
 
 function openInTab(htmlPath) {
   browser.tabs.create({ url: browser.runtime.getURL(htmlPath) });
@@ -11,14 +11,14 @@ function openInTab(htmlPath) {
 (async function () {
   const statusEl = document.getElementById('status');
   const instanceValue = document.getElementById('instance-value');
-  const feedBtn = document.getElementById('open-lorehaven');
+  const feedBtn = document.getElementById('open-darkhold');
   const refreshBtn = document.getElementById('refresh-cache');
 
   let instance = '';
   try {
     instance = (await getInstance()) || '';
   } catch (e) {
-    console.error('[Lorehaven] popup could not read settings:', e);
+    console.error('[Darkhold] popup could not read settings:', e);
     statusEl.textContent = 'Could not read this extension\'s settings.';
     return;
   }

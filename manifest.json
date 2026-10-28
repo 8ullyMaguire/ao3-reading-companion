@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Lorehaven Companion",
+  "name": "Darkhold Companion",
   "version": "1.0.0",
-  "description": "The Lorehaven client: shows your instance's recommendations, in the instance's order, with the reasons it recorded.",
+  "description": "The Darkhold client: shows your instance's recommendations, in the instance's order, with the reasons it recorded.",
   "browser_specific_settings": {
     "gecko": {
       "id": "lorehaven-companion@lorehaven",
@@ -21,7 +21,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Lorehaven Companion",
+    "default_title": "Darkhold Companion",
     "default_icon": {
       "16": "icons/icon-16.png",
       "48": "icons/icon-48.png"

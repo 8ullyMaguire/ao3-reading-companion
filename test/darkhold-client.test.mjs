@@ -1,4 +1,4 @@
-// test/lorehaven-client.test.mjs
+// test/darkhold-client.test.mjs
 //
 // The client is the only file that calls fetch, so it is the only thing standing between
 // the extension and "a client with no tests is how an extension ends up POSTing someone's
@@ -6,14 +6,14 @@
 // source-greps: the plan's sketch asserts `src.includes('assertConfiguredOrigin')`, which
 // passes just as happily when the call is commented out.
 //
-//   node --test test/lorehaven-client.test.mjs
+//   node --test test/darkhold-client.test.mjs
 
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const client = require('../lorehaven.js');
+const client = require('../darkhold.js');
 
 const BASE = 'https://reading.example.org';
 let calls;
@@ -59,7 +59,7 @@ test('an off-instance TARGET is refused before anything is sent (§48.5)', async
 
 test('no instance configured means no request, not a request to somewhere', async () => {
   client.setBaseUrl(null);
-  await assert.rejects(() => client.getFeed(), /No Lorehaven instance configured/);
+  await assert.rejects(() => client.getFeed(), /No Darkhold instance configured/);
   assert.equal(calls.length, 0);
 });
 
@@ -80,6 +80,41 @@ test('an absent token is omitted, not invented (an operator may have CSRF off)',
   client.setCookieReader(async () => null);
   await client.addNote('w1', 'hello');
   assert.equal(calls[0].init.headers['x-csrf-token'], undefined);
+});
+
+test('the current cookie name wins, and the old one is not even asked for', async () => {
+  const asked = [];
+  client.setCookieReader(async (name) => { asked.push(name); return 'NEW-TOKEN'; });
+  await client.addNote('w1', 'hello');
+  assert.equal(calls[0].init.headers['x-csrf-token'], 'NEW-TOKEN');
+  assert.deepEqual(asked, [client.CSRF_COOKIE],
+    'a browser that has the new cookie must not read the old one');
+});
+
+test('a CSRF token under the pre-rename cookie name is still read, and the move is announced', async () => {
+  // The compatibility shim. A reader signed in before the server renamed its cookies
+  // still holds `lorehaven_csrf` until it expires; a rename that turned every write into
+  // a 403 would be a rename that broke the extension for people who did nothing wrong.
+  const asked = [];
+  const warnings = [];
+  const realWarn = console.warn;
+  console.warn = (...args) => warnings.push(args.join(' '));
+  client.setCookieReader(async (name) => {
+    asked.push(name);
+    return name === client.LEGACY_CSRF_COOKIE ? 'OLD-TOKEN' : null;
+  });
+  try {
+    await client.addNote('w1', 'hello');
+  } finally {
+    console.warn = realWarn;
+  }
+  assert.equal(calls[0].init.headers['x-csrf-token'], 'OLD-TOKEN', 'the old cookie is used');
+  assert.deepEqual(asked, [client.CSRF_COOKIE, client.LEGACY_CSRF_COOKIE],
+    'the current name is tried first, the old one only when it is absent');
+  assert.ok(
+    warnings.some((w) => w.includes('lorehaven_csrf') && w.includes('darkhold_csrf')),
+    `the move is announced: ${warnings.join(' | ')}`
+  );
 });
 
 test('the note body is exactly the shape the handler reads (reading.rs:120)', async () => {
